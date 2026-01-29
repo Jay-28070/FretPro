@@ -1,8 +1,8 @@
 /**
- * Login Screen
+ * Register Screen
  * 
- * Allows users to sign in with email and password.
- * Includes link to register screen for new users.
+ * Allows new users to create an account with email and password.
+ * Creates user profile in Firestore after successful registration.
  */
 
 import { Colors } from '@/constants/theme';
@@ -22,25 +22,40 @@ import {
     View,
 } from 'react-native';
 
-export default function LoginScreen() {
-  const { signIn, signInWithGoogle, isLoading } = useAuth();
+export default function RegisterScreen() {
+  const { signUp, signInWithGoogle, isLoading } = useAuth();
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
 
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both email and password');
+  const handleRegister = async () => {
+    // Validation
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
     try {
-      await signIn(email.trim(), password);
+      await signUp(email.trim(), password, firstName.trim(), lastName.trim());
+      // Auth context will handle navigation after successful signup
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid email or password');
+      Alert.alert('Registration Failed', error.message || 'Could not create account');
     }
   };
 
@@ -52,8 +67,8 @@ export default function LoginScreen() {
     }
   };
 
-  const handleRegister = () => {
-    router.push('/(auth)/register');
+  const handleBackToLogin = () => {
+    router.back();
   };
 
   return (
@@ -69,12 +84,56 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <Text style={[styles.logo, { color: colors.primary }]}>FretPro</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Guitar Practice Companion
+            Create Your Account
           </Text>
         </View>
 
-        {/* Login Form */}
+        {/* Register Form */}
         <View style={styles.form}>
+          <View style={styles.row}>
+            <View style={[styles.inputContainer, styles.halfWidth]}>
+              <Text style={[styles.label, { color: colors.text }]}>First Name</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.backgroundSecondary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="John"
+                placeholderTextColor={colors.textSecondary}
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                textContentType="givenName"
+                editable={!isLoading}
+              />
+            </View>
+
+            <View style={[styles.inputContainer, styles.halfWidth]}>
+              <Text style={[styles.label, { color: colors.text }]}>Last Name</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.backgroundSecondary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Doe"
+                placeholderTextColor={colors.textSecondary}
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+                textContentType="familyName"
+                editable={!isLoading}
+              />
+            </View>
+          </View>
+
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Email</Text>
             <TextInput
@@ -109,12 +168,33 @@ export default function LoginScreen() {
                   borderColor: colors.border,
                 },
               ]}
-              placeholder="Enter your password"
+              placeholder="At least 6 characters"
               placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              textContentType="password"
+              textContentType="newPassword"
+              editable={!isLoading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.backgroundSecondary,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="Re-enter password"
+              placeholderTextColor={colors.textSecondary}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              textContentType="newPassword"
               editable={!isLoading}
             />
           </View>
@@ -125,11 +205,11 @@ export default function LoginScreen() {
               { backgroundColor: colors.primary },
               isLoading && styles.buttonDisabled,
             ]}
-            onPress={handleLogin}
+            onPress={handleRegister}
             disabled={isLoading}
           >
             <Text style={[styles.buttonText, { color: colors.background }]}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </Text>
           </TouchableOpacity>
 
@@ -154,7 +234,7 @@ export default function LoginScreen() {
             disabled={isLoading}
           >
             <View style={styles.googleButtonContent}>
-              <Text style={styles.googleLogo}>G</Text>
+              <Text style={styles.googleIcon}>G</Text>
               <Text style={[styles.googleButtonText, { color: colors.text }]}>
                 Continue with Google
               </Text>
@@ -162,13 +242,13 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Register Link */}
+        {/* Login Link */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            Don't have an account?{' '}
+            Already have an account?{' '}
           </Text>
-          <TouchableOpacity onPress={handleRegister} disabled={isLoading}>
-            <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>
+          <TouchableOpacity onPress={handleBackToLogin} disabled={isLoading}>
+            <Text style={[styles.link, { color: colors.primary }]}>Sign In</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -184,7 +264,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logo: {
     fontSize: 48,
@@ -201,6 +281,13 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: 'center',
     gap: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfWidth: {
+    flex: 1,
   },
   inputContainer: {
     gap: 8,
@@ -269,7 +356,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  googleLogo: {
+  googleIcon: {
     fontSize: 20,
     fontWeight: '700',
     color: '#4285F4',

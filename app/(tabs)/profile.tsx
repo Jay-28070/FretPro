@@ -2,32 +2,105 @@
  * Profile Screen
  * 
  * Main dashboard showing user profile, navigation cards, and practice summary.
- * Modern, clean design with proper spacing and hierarchy.
+ * Loads real user data from Firestore.
  */
 
 import { NavigationCard } from '@/components/profile/NavigationCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { StatsSummary } from '@/components/profile/StatsSummary';
+import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  stats: {
+    totalPoints: number;
+    totalSessions: number;
+    totalNotesCorrect: number;
+    averageAccuracy: number;
+    longestStreak: number;
+    practiceTime: number;
+  };
+}
 
 export default function ProfileScreen() {
   const { colorScheme } = useTheme();
-  const { signOut } = useAuth();
+  const { user } = useAuth();
   const colors = Colors[colorScheme];
   const router = useRouter();
 
-  // Mock data - Phase 3 will load from backend
-  const mockProfile = {
-    username: 'GuitarPro',
-    friendCount: 12,
-    totalNotesCorrect: 1247,
-    averageAccuracy: 87,
-    weakestString: 'B',
-  };
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load user profile from Firestore
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setProfile(userDoc.data() as UserProfile);
+        } else {
+          // User document doesn't exist, create a default one
+          console.log('User document not found, using defaults');
+          setProfile({
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+            username: user.email?.split('@')[0] || 'user',
+            email: user.email || '',
+            stats: {
+              totalPoints: 0,
+              totalSessions: 0,
+              totalNotesCorrect: 0,
+              averageAccuracy: 0,
+              longestStreak: 0,
+              practiceTime: 0,
+            }
+          });
+        }
+      } catch (error: any) {
+        console.error('Error loading profile:', error);
+        
+        // If permissions error, use default profile from auth
+        if (error.code === 'permission-denied') {
+          console.log('Firestore rules not deployed, using auth data');
+          setProfile({
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+            username: user.email?.split('@')[0] || 'user',
+            email: user.email || '',
+            stats: {
+              totalPoints: 0,
+              totalSessions: 0,
+              totalNotesCorrect: 0,
+              averageAccuracy: 0,
+              longestStreak: 0,
+              practiceTime: 0,
+            }
+          });
+        } else {
+          Alert.alert('Error', 'Failed to load profile data');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   const handleSettingsPress = () => {
     router.push('/settings');
@@ -38,14 +111,30 @@ export default function ProfileScreen() {
   };
 
   const handleHistoryPress = () => {
-    // TODO: Navigate to practice history
     Alert.alert('Coming Soon', 'Practice history will be available in Phase 3');
   };
 
   const handleAchievementsPress = () => {
-    // TODO: Navigate to achievements
     Alert.alert('Coming Soon', 'Achievements will be available in Phase 3');
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          Failed to load profile
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView 
@@ -55,8 +144,8 @@ export default function ProfileScreen() {
     >
       {/* Header */}
       <ProfileHeader 
-        username={mockProfile.username}
-        friendCount={mockProfile.friendCount}
+        username={`${profile.firstName} ${profile.lastName}`.trim() || profile.username}
+        friendCount={0}
       />
 
       {/* Navigation Cards */}
@@ -72,7 +161,7 @@ export default function ProfileScreen() {
         <NavigationCard
           icon="person.2.fill"
           title="Friends"
-          subtitle={`${mockProfile.friendCount} friends`}
+          subtitle="Coming soon"
           onPress={handleFriendsPress}
           iconColor={colors.primary}
         />
@@ -94,14 +183,31 @@ export default function ProfileScreen() {
         />
       </View>
 
-      {/* Practice Summary */}
-      <View style={styles.section}>
-        <StatsSummary
-          totalNotesCorrect={mockProfile.totalNotesCorrect}
-          averageAccuracy={mockProfile.averageAccuracy}
-          weakestString={mockProfile.weakestString}
-        />
-      </View>
+      {/* Practice Summary - Only show if user has practiced */}
+      {profile.stats.totalSessions > 0 && (
+        <View style={styles.section}>
+          <StatsSummary
+            totalNotesCorrect={profile.stats.totalNotesCorrect}
+            averageAccuracy={profile.stats.averageAccuracy}
+            weakestString="N/A"
+          />
+        </View>
+      )}
+
+      {/* No practice yet message */}
+      {profile.stats.totalSessions === 0 && (
+        <View style={[styles.noPracticeCard, { 
+          backgroundColor: colors.backgroundSecondary,
+          borderColor: colors.border,
+        }]}>
+          <Text style={[styles.noPracticeTitle, { color: colors.text }]}>
+            Start Practicing!
+          </Text>
+          <Text style={[styles.noPracticeText, { color: colors.textSecondary }]}>
+            Head to the Practice tab to begin your guitar journey
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -110,11 +216,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   content: {
     padding: 20,
     paddingBottom: 40,
   },
   section: {
     marginBottom: 24,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noPracticeCard: {
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  noPracticeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  noPracticeText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
