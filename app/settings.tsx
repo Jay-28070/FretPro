@@ -8,7 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Stack } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
@@ -20,14 +20,37 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
-      ]
-    );
+    // Use native confirm for web compatibility
+    const confirmed = window.confirm('Are you sure you want to sign out?');
+    
+    if (!confirmed) return;
+    
+    console.log('Force logout initiated');
+    
+    // Direct Firebase signout
+    signOut().catch(console.error);
+    
+    // Immediate storage clear
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Clear IndexedDB (Firebase uses this)
+        indexedDB.databases().then(dbs => {
+          dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+        });
+      }
+    } catch (e) {
+      console.error('Storage clear error:', e);
+    }
+    
+    // Force reload after short delay
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }, 500);
   };
 
   return (

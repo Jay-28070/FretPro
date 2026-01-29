@@ -1,46 +1,162 @@
 /**
  * Auth Context
  * 
- * Manages authentication state across the app.
- * Currently uses dummy state - will be replaced with real auth in Phase 3.
+ * Manages authentication state using Firebase Auth.
+ * Handles sign in, sign up, sign out, and Google Sign-In.
  * 
- * Why: Expo Router needs auth state to determine which screens to show.
- * Pattern: Standard React Context for global state.
+ * Security: Firebase Auth handles all authentication securely.
+ * User data access is controlled by Firestore security rules.
+ * 
+ * Note: Google Sign-In uses signInWithPopup which works on web.
+ * For native apps, this will need to be replaced with a native flow.
  */
 
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import { auth, db } from '@/config/firebase';
+import {
+    createUserWithEmailAndPassword,
+    signOut as firebaseSignOut,
+    GoogleAuthProvider,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signInWithPopup,
+    User
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Dummy auth state - Phase 3 will replace with real authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Set to true for development
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const signIn = async () => {
+  // Listen to auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsAuthenticated(true);
-    setIsLoading(false);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw new Error(error.message || 'Failed to sign in');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+    setIsLoading(true);
+    try {
+      // Create auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        firstName,
+        lastName,
+        email,
+        username: email.split('@')[0], // Default username from email
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        stats: {
+          totalPoints: 0,
+          totalSessions: 0,
+          totalNotesCorrect: 0,
+          averageAccuracy: 0,
+          longestStreak: 0,
+          practiceTime: 0,
+        }
+      });
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      throw new Error(error.message || 'Failed to sign up');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signOut = async () => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setIsAuthenticated(false);
-    setIsLoading(false);
+    try {
+      console.log('AuthContext: Signing out...');
+      await firebaseSignOut(auth);
+      console.log('AuthContext: Sign out successful');
+    } catch (error: any) {
+      console.error('AuthContext: Sign out error:', error);
+      throw new Error(error.message || 'Failed to sign out');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setIsLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      
+      // Check if user document exists, create if not
+      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      if (!userDoc.exists()) {
+        const displayName = result.user.displayName || '';
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        await setDoc(doc(db, 'users', result.user.uid), {
+          firstName,
+          lastName,
+          email: result.user.email,
+          username: result.user.email?.split('@')[0] || 'user',
+          avatar: result.user.photoURL,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          stats: {
+            totalPoints: 0,
+            totalSessions: 0,
+            totalNotesCorrect: 0,
+            averageAccuracy: 0,
+            longestStreak: 0,
+            practiceTime: 0,
+          }
+        });
+      }
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      throw new Error(error.message || 'Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ 
+      user,
+      isAuthenticated: !!user, 
+      isLoading, 
+      signIn, 
+      signUp,
+      signInWithGoogle,
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );

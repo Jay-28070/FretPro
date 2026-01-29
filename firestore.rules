@@ -1,0 +1,145 @@
+rules_version = '2';
+
+/**
+ * FretPro Firestore Security Rules
+ * 
+ * Data Structure:
+ * - users/{userId} - User profiles (firstName, lastName, avatar, stats)
+ * - friends/{friendshipId} - Friend relationships
+ * - challenges/{challengeId} - Practice challenges between users
+ * - sessions/{sessionId} - Practice session data
+ * 
+ * Security Principles:
+ * - Users can only read/write their own data
+ * - Friends can see each other's public profile data
+ * - Challenge participants can read/write challenge data
+ * - All writes are validated for required fields
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isFriend(userId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/friends/$(request.auth.uid + '_' + userId)) ||
+             exists(/databases/$(database)/documents/friends/$(userId + '_' + request.auth.uid));
+    }
+    
+    // Users Collection
+    match /users/{userId} {
+      // Anyone authenticated can read basic profile info (for friend search)
+      allow read: if isAuthenticated();
+      
+      // Users can only create/update their own profile
+      allow create: if isOwner(userId) && 
+                      request.resource.data.keys().hasAll(['firstName', 'lastName', 'createdAt']) &&
+                      request.resource.data.firstName is string &&
+                      request.resource.data.lastName is string &&
+                      request.resource.data.createdAt == request.time;
+      
+      allow update: if isOwner(userId) &&
+                      // Prevent changing immutable fields
+                      request.resource.data.createdAt == resource.data.createdAt &&
+                      // Validate field types
+                      (!request.resource.data.keys().hasAny(['firstName']) || request.resource.data.firstName is string) &&
+                      (!request.resource.data.keys().hasAny(['lastName']) || request.resource.data.lastName is string) &&
+                      (!request.resource.data.keys().hasAny(['avatar']) || request.resource.data.avatar is string);
+      
+      // Users can delete their own profile
+      allow delete: if isOwner(userId);
+      
+      // Practice Stats subcollection
+      match /stats/{statId} {
+        allow read: if isOwner(userId) || isFriend(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+    
+    // Friends Collection
+    // Document ID format: {userId1}_{userId2} (alphabetically sorted)
+    match /friends/{friendshipId} {
+      // Users can read friendships they're part of
+      allow read: if isAuthenticated() && 
+                    (friendshipId.matches('^' + request.auth.uid + '_.*') ||
+                     friendshipId.matches('.*_' + request.auth.uid + '$'));
+      
+      // Users can create friendships involving themselves
+      allow create: if isAuthenticated() &&
+                      (request.resource.data.user1 == request.auth.uid ||
+                       request.resource.data.user2 == request.auth.uid) &&
+                      request.resource.data.keys().hasAll(['user1', 'user2', 'status', 'createdAt']) &&
+                      request.resource.data.status in ['pending', 'accepted'] &&
+                      request.resource.data.createdAt == request.time;
+      
+      // Users can update friendships they're part of (accept/reject)
+      allow update: if isAuthenticated() &&
+                      (resource.data.user1 == request.auth.uid ||
+                       resource.data.user2 == request.auth.uid) &&
+                      request.resource.data.status in ['pending', 'accepted', 'rejected'];
+      
+      // Users can delete friendships they're part of
+      allow delete: if isAuthenticated() &&
+                      (resource.data.user1 == request.auth.uid ||
+                       resource.data.user2 == request.auth.uid);
+    }
+    
+    // Challenges Collection
+    match /challenges/{challengeId} {
+      // Participants can read their challenges
+      allow read: if isAuthenticated() &&
+                    (resource.data.challenger == request.auth.uid ||
+                     resource.data.opponent == request.auth.uid);
+      
+      // Users can create challenges
+      allow create: if isAuthenticated() &&
+                      request.resource.data.challenger == request.auth.uid &&
+                      request.resource.data.keys().hasAll(['challenger', 'opponent', 'status', 'createdAt']) &&
+                      request.resource.data.status == 'pending' &&
+                      request.resource.data.createdAt == request.time;
+      
+      // Participants can update challenge (accept, complete, submit scores)
+      allow update: if isAuthenticated() &&
+                      (resource.data.challenger == request.auth.uid ||
+                       resource.data.opponent == request.auth.uid) &&
+                      request.resource.data.status in ['pending', 'active', 'completed', 'cancelled'];
+      
+      // Participants can delete challenges
+      allow delete: if isAuthenticated() &&
+                      (resource.data.challenger == request.auth.uid ||
+                       resource.data.opponent == request.auth.uid);
+    }
+    
+    // Practice Sessions Collection
+    match /sessions/{sessionId} {
+      // Users can only read their own sessions
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can only create their own sessions
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.keys().hasAll(['userId', 'startTime', 'score']) &&
+                      request.resource.data.startTime == request.time;
+      
+      // Users can update their own sessions (to add endTime, final score, etc.)
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own sessions
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Leaderboards Collection (read-only, updated by Cloud Functions)
+    match /leaderboards/{leaderboardId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can write
+    }
+  }
+}
