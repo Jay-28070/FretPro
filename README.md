@@ -6,28 +6,28 @@ Modern, minimal design for focused practice sessions with voice-guided commands.
 
 ---
 
-## 🎯 Features
+## Features
 
-### Phase 1 (Current) ✅
+### Phase 1 (Current) 
 - **Voice-Guided Practice:** TTS speaks commands like "Play G on the B string, fret 3"
 - **Smart Command Generation:** Intelligent note/string/fret selection with anti-repetition
 - **Session Tracking:** Real-time accuracy and progress statistics
 - **Theme Support:** Working light/dark mode toggle
 - **Auth-Aware Routing:** Prepared for Phase 3 authentication
 
-### Phase 2 (Scaffolded) 🚧
+### Phase 2 (Scaffolded) 
 - **Real-Time Pitch Detection:** YIN algorithm for accurate note recognition
 - **Guitar Tuner:** Visual tuning feedback with string detection
 - **Metronome:** Precise timing engine with BPM control
 
-### Phase 3 (Planned) 📋
+### Phase 3 (Planned) 
 - **User Authentication:** Real login/register flow
 - **Progress Tracking:** Historical performance analytics
 - **Custom Exercises:** Personalized practice routines
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
@@ -57,7 +57,7 @@ npx expo start
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 FretPro/
@@ -67,30 +67,30 @@ FretPro/
 │   │   └── login.tsx
 │   ├── (tabs)/                   # Main app tabs
 │   │   ├── _layout.tsx
-│   │   ├── practice.tsx          # ✅ Main practice interface
-│   │   ├── tuner.tsx             # 🚧 Tuner screen
-│   │   └── profile.tsx           # ✅ Profile & settings
+│   │   ├── practice.tsx          #  Main practice interface
+│   │   ├── tuner.tsx             #  Tuner screen
+│   │   └── profile.tsx           #  Profile & settings
 │   └── _layout.tsx               # Root layout with providers
 ├── services/                     # Business logic services
 │   ├── audio/                    # Audio processing
-│   │   ├── TTSService.ts         # ✅ Text-to-speech
-│   │   ├── TunerService.ts       # 🚧 Tuner (scaffolded)
-│   │   ├── PitchDetectionService.ts  # 🚧 Pitch detection (scaffolded)
-│   │   └── MetronomeService.ts   # 🚧 Metronome (scaffolded)
+│   │   ├── TTSService.ts         #  Text-to-speech
+│   │   ├── TunerService.ts       #  Tuner (scaffolded)
+│   │   ├── PitchDetectionService.ts  #  Pitch detection (scaffolded)
+│   │   └── MetronomeService.ts   #  Metronome (scaffolded)
 │   └── practice/                 # Practice logic
-│       └── CommandGenerator.ts   # ✅ Command generation
+│       └── CommandGenerator.ts   #  Command generation
 ├── contexts/                     # React contexts
-│   ├── ThemeContext.tsx          # ✅ Theme management
-│   └── AuthContext.tsx           # ✅ Auth state (dummy)
+│   ├── ThemeContext.tsx          #  Theme management
+│   └── AuthContext.tsx           #  Auth state (dummy)
 ├── components/                   # Reusable UI components
 ├── constants/                    # Theme and constants
-│   └── theme.ts                  # ✅ Color system
+│   └── theme.ts                  #  Color system
 └── hooks/                        # Custom React hooks
 ```
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Design Principles
 
@@ -133,7 +133,7 @@ if (!isAuthenticated && !inAuthGroup) {
 
 ---
 
-## 🎨 Theme System
+## Theme System
 
 ### Colors
 
@@ -168,7 +168,7 @@ Users can toggle theme in Profile tab:
 
 ---
 
-## 🎤 Audio Services
+## Audio Services
 
 ### TTS Service (Implemented)
 
@@ -235,7 +235,7 @@ metronomeService.setTempo(140);
 
 ---
 
-## 🧪 Development
+## Development
 
 ### Scripts
 
@@ -260,9 +260,9 @@ npm run clean      # Clear cache and restart
 
 ---
 
-## 🔮 Roadmap
+## Roadmap
 
-### Phase 1: Foundation ✅ (Complete)
+### Phase 1: Foundation (Complete)
 - [x] Project structure
 - [x] TTS Service
 - [x] Command Generator
@@ -270,7 +270,7 @@ npm run clean      # Clear cache and restart
 - [x] Auth-aware routing
 - [x] Practice/Tuner/Profile tabs
 
-### Phase 2: Audio Processing 🚧 (Next)
+### Phase 2: Audio Processing (Next)
 - [ ] Pitch Detection (expo-av + pitchfinder)
 - [ ] Tuner implementation
 - [ ] Metronome implementation
@@ -284,7 +284,7 @@ npm run clean      # Clear cache and restart
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### PowerShell Execution Policy
 
@@ -316,7 +316,7 @@ npm install
 
 ---
 
-## 📖 Resources
+## Resources
 
 - [Expo Documentation](https://docs.expo.dev/)
 - [Expo Router](https://docs.expo.dev/router/introduction/)
@@ -325,7 +325,7 @@ npm install
 
 ---
 
-## 📝 Notes
+## Notes
 
 ### Why This Structure?
 
@@ -345,10 +345,8 @@ Phase 3 will implement real authentication.
 
 ---
 
-## 📄 License
+## License
 
 MIT
 
 ---
-
-**Built with care for musicians** 🎸
