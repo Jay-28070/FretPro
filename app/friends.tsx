@@ -12,6 +12,7 @@ import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { type Difficulty, type GameType, scoreService } from '@/services/practice/ScoreService';
 import { Stack } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -43,6 +44,14 @@ interface Challenge {
   won: boolean;
 }
 
+interface LeaderboardEntry {
+  userId: string;
+  userName: string;
+  score: number;
+  accuracy: number;
+  isCurrentUser: boolean;
+}
+
 export default function FriendsScreen() {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
@@ -55,6 +64,30 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<GameType>('ear-training');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('easy');
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [friendsPage, setFriendsPage] = useState(1);
+  const [friendsPerPage] = useState(10);
+
+  const filteredFriends = friends.filter(friend =>
+    friend.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    `${friend.firstName} ${friend.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Pagination
+  const totalPages = Math.ceil(leaderboard.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedLeaderboard = leaderboard.slice(startIndex, endIndex);
+
+  // Friends pagination
+  const totalFriendsPages = Math.ceil(filteredFriends.length / friendsPerPage);
+  const friendsStartIndex = (friendsPage - 1) * friendsPerPage;
+  const friendsEndIndex = friendsStartIndex + friendsPerPage;
+  const paginatedFriends = filteredFriends.slice(friendsStartIndex, friendsEndIndex);
 
   // Load friends and friend requests
   useEffect(() => {
@@ -155,6 +188,52 @@ export default function FriendsScreen() {
     loadFriendsData();
   }, [user]);
 
+  // Load leaderboard when game/difficulty changes
+  useEffect(() => {
+    if (!user) return;
+    setCurrentPage(1); // Reset to first page
+    loadLeaderboard();
+  }, [user, selectedGame, selectedDifficulty]);
+
+  const loadLeaderboard = async () => {
+    if (!user) return;
+
+    try {
+      const friendScores = await scoreService.getFriendLeaderboard(user.uid, selectedGame, selectedDifficulty);
+      
+      // Add current user's score
+      const userScore = await scoreService.getHighScore(user.uid, selectedGame, selectedDifficulty);
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      
+      const entries: LeaderboardEntry[] = friendScores.map(score => ({
+        userId: score.userId,
+        userName: score.userName,
+        score: score.score,
+        accuracy: score.accuracy,
+        isCurrentUser: false,
+      }));
+
+      // Add current user if they have a score
+      if (userScore) {
+        entries.push({
+          userId: user.uid,
+          userName: userData?.username || 'You',
+          score: userScore.score,
+          accuracy: userScore.accuracy,
+          isCurrentUser: true,
+        });
+      }
+
+      // Sort by score descending
+      entries.sort((a, b) => b.score - a.score);
+      
+      setLeaderboard(entries);
+    } catch (error) {
+      console.error('Error loading leaderboard:', error);
+    }
+  };
+
   // Search for users
   useEffect(() => {
     if (!searchQuery.trim() || !user) {
@@ -222,11 +301,6 @@ export default function FriendsScreen() {
       }
     }
   };
-
-  const filteredFriends = friends.filter(friend =>
-    friend.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    `${friend.firstName} ${friend.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (loading) {
     return (
@@ -393,15 +467,64 @@ export default function FriendsScreen() {
           </Text>
 
           {filteredFriends.length > 0 ? (
-            filteredFriends.map(friend => (
-              <FriendCard
-                key={friend.id}
-                username={friend.username}
-                fullName={`${friend.firstName} ${friend.lastName}`.trim()}
-                accuracy={friend.accuracy}
-                isOnline={friend.isOnline}
-              />
-            ))
+            <>
+              {paginatedFriends.map(friend => (
+                <FriendCard
+                  key={friend.id}
+                  username={friend.username}
+                  fullName={`${friend.firstName} ${friend.lastName}`.trim()}
+                  accuracy={friend.accuracy}
+                  isOnline={friend.isOnline}
+                />
+              ))}
+              
+              {/* Friends Pagination */}
+              {totalFriendsPages > 1 && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor: friendsPage === 1 ? colors.border : colors.primary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setFriendsPage(prev => Math.max(1, prev - 1))}
+                    disabled={friendsPage === 1}
+                  >
+                    <IconSymbol 
+                      name="chevron.left.forwardslash.chevron.right" 
+                      size={16} 
+                      color={friendsPage === 1 ? colors.textTertiary : colors.background} 
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.paginationInfo}>
+                    <Text style={[styles.paginationText, { color: colors.text }]}>
+                      Page {friendsPage} of {totalFriendsPages}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor: friendsPage === totalFriendsPages ? colors.border : colors.primary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setFriendsPage(prev => Math.min(totalFriendsPages, prev + 1))}
+                    disabled={friendsPage === totalFriendsPages}
+                  >
+                    <IconSymbol 
+                      name="chevron.right" 
+                      size={16} 
+                      color={friendsPage === totalFriendsPages ? colors.textTertiary : colors.background} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
           ) : (
             <View style={[styles.emptyState, { backgroundColor: colors.backgroundSecondary }]}>
               <IconSymbol name="person.2" size={48} color={colors.textTertiary} />
@@ -439,6 +562,232 @@ export default function FriendsScreen() {
             </ScrollView>
           </View>
         )}
+
+        {/* Leaderboards */}
+        <View style={styles.section}>
+          <View style={styles.leaderboardHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Leaderboards
+            </Text>
+            <View style={styles.itemsPerPageSelector}>
+              <Text style={[styles.itemsPerPageLabel, { color: colors.textSecondary }]}>Show:</Text>
+              {[10, 25, 50].map(num => (
+                <TouchableOpacity
+                  key={num}
+                  style={[
+                    styles.itemsPerPageButton,
+                    {
+                      backgroundColor: itemsPerPage === num ? colors.primary : colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    setItemsPerPage(num);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.itemsPerPageText,
+                      { color: itemsPerPage === num ? colors.background : colors.text },
+                    ]}
+                  >
+                    {num}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Game Selector */}
+          <View style={styles.gameSelector}>
+            <TouchableOpacity
+              style={[
+                styles.gameSelectorButton,
+                {
+                  backgroundColor: selectedGame === 'ear-training' ? colors.primary : colors.background,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedGame('ear-training')}
+            >
+              <Text
+                style={[
+                  styles.gameSelectorText,
+                  { color: selectedGame === 'ear-training' ? colors.background : colors.text },
+                ]}
+              >
+                Ear Training
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.gameSelectorButton,
+                {
+                  backgroundColor: selectedGame === 'note-recognition' ? colors.primary : colors.background,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedGame('note-recognition')}
+            >
+              <Text
+                style={[
+                  styles.gameSelectorText,
+                  { color: selectedGame === 'note-recognition' ? colors.background : colors.text },
+                ]}
+              >
+                Note Recognition
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Difficulty Selector */}
+          <View style={styles.difficultySelector}>
+            {(['easy', 'medium', 'hard'] as Difficulty[]).map(diff => (
+              <TouchableOpacity
+                key={diff}
+                style={[
+                  styles.difficultyButton,
+                  {
+                    backgroundColor: selectedDifficulty === diff ? colors.primary : colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedDifficulty(diff)}
+              >
+                <Text
+                  style={[
+                    styles.difficultyText,
+                    { color: selectedDifficulty === diff ? colors.background : colors.text },
+                  ]}
+                >
+                  {diff.charAt(0).toUpperCase() + diff.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Leaderboard List */}
+          {leaderboard.length > 0 ? (
+            <>
+              <View style={[styles.leaderboardCard, {
+                backgroundColor: colors.backgroundSecondary,
+                borderColor: colors.border,
+              }]}>
+                {paginatedLeaderboard.map((entry, index) => {
+                  const globalRank = startIndex + index + 1;
+                  
+                  return (
+                    <View
+                      key={entry.userId}
+                      style={[
+                        styles.leaderboardEntry,
+                        {
+                          backgroundColor: entry.isCurrentUser ? colors.primary + '10' : 'transparent',
+                          borderBottomColor: colors.border,
+                          borderBottomWidth: index < paginatedLeaderboard.length - 1 ? 1 : 0,
+                        },
+                      ]}
+                    >
+                      <View style={styles.leaderboardLeft}>
+                        <View style={[
+                          styles.rankBadge,
+                          {
+                            backgroundColor: globalRank === 1 ? '#FFD700' :
+                                           globalRank === 2 ? '#C0C0C0' :
+                                           globalRank === 3 ? '#CD7F32' : colors.border,
+                          },
+                        ]}>
+                          <Text style={[
+                            styles.rankText, 
+                            { color: globalRank <= 3 ? '#FFFFFF' : colors.text }
+                          ]}>
+                            {globalRank}
+                          </Text>
+                        </View>
+                        <View style={styles.playerInfo}>
+                          <Text style={[
+                            styles.leaderboardName,
+                            {
+                              color: entry.isCurrentUser ? colors.primary : colors.text,
+                              fontWeight: entry.isCurrentUser ? '700' : '600',
+                            },
+                          ]}>
+                            {entry.isCurrentUser ? 'You' : entry.userName}
+                          </Text>
+                          <Text style={[styles.leaderboardAccuracy, { color: colors.textSecondary }]}>
+                            {entry.accuracy}% accuracy
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.leaderboardRight}>
+                        <Text style={[styles.leaderboardScore, { color: colors.primary }]}>
+                          {entry.score}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor: currentPage === 1 ? colors.border : colors.primary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <IconSymbol 
+                      name="chevron.left.forwardslash.chevron.right" 
+                      size={16} 
+                      color={currentPage === 1 ? colors.textTertiary : colors.background} 
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.paginationInfo}>
+                    <Text style={[styles.paginationText, { color: colors.text }]}>
+                      Page {currentPage} of {totalPages}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationButton,
+                      {
+                        backgroundColor: currentPage === totalPages ? colors.border : colors.primary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <IconSymbol 
+                      name="chevron.right" 
+                      size={16} 
+                      color={currentPage === totalPages ? colors.textTertiary : colors.background} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={[styles.emptyLeaderboard, { backgroundColor: colors.backgroundSecondary }]}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No scores yet
+              </Text>
+              <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                Play some games to see scores here!
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </>
   );
@@ -567,5 +916,138 @@ const styles = StyleSheet.create({
   challengesScroll: {
     gap: 12,
     paddingRight: 20,
+  },
+  leaderboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  itemsPerPageSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  itemsPerPageLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  itemsPerPageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  itemsPerPageText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  gameSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  gameSelectorButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  gameSelectorText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  difficultySelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  difficultyButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  difficultyText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  leaderboardCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  leaderboardEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  leaderboardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  rankBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  rankText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  leaderboardName: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  leaderboardRight: {
+    alignItems: 'flex-end',
+  },
+  leaderboardScore: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  leaderboardAccuracy: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  emptyLeaderboard: {
+    padding: 48,
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 8,
+  },
+  paginationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationInfo: {
+    alignItems: 'center',
+  },
+  paginationText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
