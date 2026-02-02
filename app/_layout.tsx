@@ -68,6 +68,8 @@ function RootLayoutNav() {
         <Stack.Screen name="friends" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="account-settings" />
+        <Stack.Screen name="practice/metronome" />
+        <Stack.Screen name="practice/ear-training" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
