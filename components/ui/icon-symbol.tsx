@@ -35,6 +35,10 @@ const MAPPING = {
   'bolt.fill': 'flash-on',
   'checkmark': 'check',
   'xmark': 'close',
+  'person.badge.plus': 'person-add',
+  
+  // Account settings icons
+  'lock.fill': 'lock',
   
   // Other
   'chevron.left.forwardslash.chevron.right': 'code',

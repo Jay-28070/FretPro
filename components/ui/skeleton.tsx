@@ -41,19 +41,16 @@ export function Skeleton({ width = '100%', height = 20, borderRadius = 8, style 
   }, []);
 
   return (
-    <Animated.View
-      style={[
-        styles.skeleton,
-        {
-          width,
-          height,
-          borderRadius,
+    <View style={[{ width: width as any, height, borderRadius, overflow: 'hidden' }, style]}>
+      <Animated.View
+        style={{
+          width: '100%',
+          height: '100%',
           backgroundColor: colors.border,
           opacity,
-        },
-        style,
-      ]}
-    />
+        }}
+      />
+    </View>
   );
 }
 
@@ -100,7 +97,6 @@ export function ProfileSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  skeleton: {},
   container: {
     flex: 1,
   },

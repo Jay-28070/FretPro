@@ -40,15 +40,9 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    console.log('Auth state:', { isAuthenticated, isLoading, segments });
-
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated
-      console.log('Redirecting to login');
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to app if authenticated
-      console.log('Redirecting to practice');
       router.replace('/(tabs)/practice');
     }
   }, [isAuthenticated, segments, isLoading, router]);
@@ -73,6 +67,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="friends" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="account-settings" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
