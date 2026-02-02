@@ -41,14 +41,12 @@ service cloud.firestore {
       
       // Users can only create/update their own profile
       allow create: if isOwner(userId) && 
-                      request.resource.data.keys().hasAll(['firstName', 'lastName', 'createdAt']) &&
+                      request.resource.data.keys().hasAll(['firstName', 'lastName', 'email']) &&
                       request.resource.data.firstName is string &&
                       request.resource.data.lastName is string &&
-                      request.resource.data.createdAt == request.time;
+                      request.resource.data.email is string;
       
       allow update: if isOwner(userId) &&
-                      // Prevent changing immutable fields
-                      request.resource.data.createdAt == resource.data.createdAt &&
                       // Validate field types
                       (!request.resource.data.keys().hasAny(['firstName']) || request.resource.data.firstName is string) &&
                       (!request.resource.data.keys().hasAny(['lastName']) || request.resource.data.lastName is string) &&
@@ -76,9 +74,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                       (request.resource.data.user1 == request.auth.uid ||
                        request.resource.data.user2 == request.auth.uid) &&
-                      request.resource.data.keys().hasAll(['user1', 'user2', 'status', 'createdAt']) &&
-                      request.resource.data.status in ['pending', 'accepted'] &&
-                      request.resource.data.createdAt == request.time;
+                      request.resource.data.keys().hasAll(['user1', 'user2', 'status']) &&
+                      request.resource.data.status in ['pending', 'accepted'];
       
       // Users can update friendships they're part of (accept/reject)
       allow update: if isAuthenticated() &&
@@ -102,9 +99,8 @@ service cloud.firestore {
       // Users can create challenges
       allow create: if isAuthenticated() &&
                       request.resource.data.challenger == request.auth.uid &&
-                      request.resource.data.keys().hasAll(['challenger', 'opponent', 'status', 'createdAt']) &&
-                      request.resource.data.status == 'pending' &&
-                      request.resource.data.createdAt == request.time;
+                      request.resource.data.keys().hasAll(['challenger', 'opponent', 'status']) &&
+                      request.resource.data.status == 'pending';
       
       // Participants can update challenge (accept, complete, submit scores)
       allow update: if isAuthenticated() &&
@@ -126,8 +122,7 @@ service cloud.firestore {
       // Users can only create their own sessions
       allow create: if isAuthenticated() &&
                       request.resource.data.userId == request.auth.uid &&
-                      request.resource.data.keys().hasAll(['userId', 'startTime', 'score']) &&
-                      request.resource.data.startTime == request.time;
+                      request.resource.data.keys().hasAll(['userId', 'score']);
       
       // Users can update their own sessions (to add endTime, final score, etc.)
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;

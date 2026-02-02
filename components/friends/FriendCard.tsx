@@ -11,11 +11,12 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface FriendCardProps {
   username: string;
+  fullName?: string;
   accuracy: number;
   isOnline: boolean;
 }
 
-export function FriendCard({ username, accuracy, isOnline }: FriendCardProps) {
+export function FriendCard({ username, fullName, accuracy, isOnline }: FriendCardProps) {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
 
@@ -53,6 +54,11 @@ export function FriendCard({ username, accuracy, isOnline }: FriendCardProps) {
         {/* Info */}
         <View style={styles.info}>
           <Text style={[styles.username, { color: colors.text }]}>{username}</Text>
+          {fullName && (
+            <Text style={[styles.fullName, { color: colors.textSecondary }]}>
+              {fullName}
+            </Text>
+          )}
           <Text style={[styles.accuracy, { color: colors.textSecondary }]}>
             {accuracy}% accuracy
           </Text>
@@ -121,6 +127,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  fullName: {
+    fontSize: 13,
     marginBottom: 2,
   },
   accuracy: {
