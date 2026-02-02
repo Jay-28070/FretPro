@@ -8,6 +8,7 @@
 import { NavigationCard } from '@/components/profile/NavigationCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { StatsSummary } from '@/components/profile/StatsSummary';
+import { ProfileSkeleton } from '@/components/ui/skeleton';
 import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +16,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface UserProfile {
   firstName: string;
@@ -139,11 +140,7 @@ export default function ProfileScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (!profile) {
