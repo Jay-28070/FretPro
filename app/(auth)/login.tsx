@@ -5,21 +5,21 @@
  * Includes link to register screen for new users.
  */
 
+import { showToast } from '@/components/ui/toast';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -32,23 +32,43 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both email and password');
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    // Validate inputs
+    if (!trimmedEmail || !trimmedPassword) {
+      showToast('Please enter both email and password', 'error');
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showToast('Please enter a valid email address', 'error');
+      return;
+    }
+
+    console.log('🔐 Attempting sign in with email:', trimmedEmail);
+
     try {
-      await signIn(email.trim(), password);
+      await signIn(trimmedEmail, trimmedPassword);
+      console.log('✅ Sign in successful');
+      showToast('Welcome back!', 'success');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid email or password');
+      console.error('❌ Sign in error:', error);
+      showToast(error.message || 'Invalid email or password', 'error');
     }
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('🔐 Attempting Google sign in...');
     try {
       await signInWithGoogle();
+      console.log('✅ Google sign in successful');
+      showToast('Welcome!', 'success');
     } catch (error: any) {
-      Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google');
+      console.error('❌ Google sign in error:', error);
+      showToast(error.message || 'Could not sign in with Google', 'error');
     }
   };
 

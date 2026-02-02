@@ -22,7 +22,7 @@ import {
     User
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
   user: User | null;
@@ -53,7 +53,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Check if user document exists, if not create a basic one
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      if (!userDoc.exists()) {
+        console.log('⚠️ User document not found, creating one...');
+        // This shouldn't happen for newly registered users, but handle legacy accounts
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          firstName: 'User',
+          lastName: '',
+          email: userCredential.user.email,
+          username: userCredential.user.email?.split('@')[0] || 'user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          stats: {
+            totalPoints: 0,
+            totalSessions: 0,
+            totalNotesCorrect: 0,
+            averageAccuracy: 0,
+            longestStreak: 0,
+            practiceTime: 0,
+          }
+        });
+      }
     } catch (error: any) {
       console.error('Sign in error:', error);
       throw new Error(error.message || 'Failed to sign in');

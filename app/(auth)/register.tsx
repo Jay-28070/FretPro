@@ -5,13 +5,13 @@
  * Creates user profile in Firestore after successful registration.
  */
 
+import { showToast } from '@/components/ui/toast';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -35,35 +35,56 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = async () => {
+    // Trim inputs
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim();
+
     // Validation
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !password.trim()) {
+      showToast('Please fill in all fields', 'error');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showToast('Please enter a valid email address', 'error');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showToast('Password must be at least 6 characters', 'error');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match', 'error');
       return;
     }
 
+    console.log('📝 Attempting registration with email:', trimmedEmail);
+
     try {
-      await signUp(email.trim(), password, firstName.trim(), lastName.trim());
+      await signUp(trimmedEmail, password, trimmedFirstName, trimmedLastName);
+      console.log('✅ Registration successful');
+      showToast('Account created successfully!', 'success');
       // Auth context will handle navigation after successful signup
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.message || 'Could not create account');
+      console.error('❌ Registration error:', error);
+      showToast(error.message || 'Could not create account', 'error');
     }
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('🔐 Attempting Google sign in...');
     try {
       await signInWithGoogle();
+      console.log('✅ Google sign in successful');
+      showToast('Welcome!', 'success');
     } catch (error: any) {
-      Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google');
+      console.error('❌ Google sign in error:', error);
+      showToast(error.message || 'Could not sign in with Google', 'error');
     }
   };
 
