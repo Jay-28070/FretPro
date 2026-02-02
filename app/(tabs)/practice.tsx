@@ -1,210 +1,133 @@
 /**
- * Practice Screen
+ * Practice Hub
  * 
- * Main practice interface with TTS-driven commands.
- * Phase 1: Voice commands + simulated results
- * Phase 2: Real pitch detection
- * 
- * Pattern: Standard React component with service integration.
+ * Central hub for all practice modes and daily progress tracking.
+ * Gamified experience to encourage daily practice.
  */
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ttsService } from '@/services/audio/TTSService';
-import { commandGenerator, PracticeCommand } from '@/services/practice/CommandGenerator';
-import { useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function PracticeScreen() {
+interface DailyProgress {
+  streak: number;
+  todayAccuracy: number;
+  sessionsToday: number;
+  goal: number;
+}
+
+export default function PracticeHubScreen() {
   const { colorScheme } = useTheme();
+  const { user } = useAuth();
   const colors = Colors[colorScheme];
 
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [currentCommand, setCurrentCommand] = useState<PracticeCommand | null>(null);
-  const [commandCount, setCommandCount] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [isListening, setIsListening] = useState(false);
+  const [progress, setProgress] = useState<DailyProgress>({
+    streak: 0,
+    todayAccuracy: 0,
+    sessionsToday: 0,
+    goal: 3,
+  });
 
-  const startSession = async () => {
-    setIsSessionActive(true);
-    setCommandCount(0);
-    setCorrectCount(0);
-    await issueNextCommand();
-  };
+  useEffect(() => {
+    // TODO: Load progress from Firestore
+    // For now, using placeholder data
+    setProgress({
+      streak: 5,
+      todayAccuracy: 87,
+      sessionsToday: 2,
+      goal: 3,
+    });
+  }, [user]);
 
-  const endSession = async () => {
-    setIsSessionActive(false);
-    setCurrentCommand(null);
-    await ttsService.stop();
-  };
+  const practiceMode = [
+    {
+      id: 'metronome',
+      title: 'Rhythm Master',
+      description: 'Hold notes in perfect time',
+      icon: 'tuningfork' as const,
+      color: colors.primary,
+      route: '/practice/metronome',
+    },
+    {
+      id: 'ear-training',
+      title: 'Ear Training',
+      description: 'Identify notes and chords',
+      icon: 'music.note' as const,
+      color: colors.secondary,
+      route: '/practice/ear-training',
+    },
+    {
+      id: 'note-recognition',
+      title: 'Note Recognition',
+      description: 'Play notes called out by voice',
+      icon: 'music.note.list' as const,
+      color: colors.primary,
+      route: '/practice/note-recognition',
+    },
+  ];
 
-  const issueNextCommand = async () => {
-    // Generate command
-    const command = commandGenerator.generate();
-    setCurrentCommand(command);
-    setCommandCount(prev => prev + 1);
-
-    // Speak command
-    await ttsService.speakNow(command.spokenText);
-
-    // Simulate listening (Phase 2 will add real pitch detection)
-    setIsListening(true);
-    setTimeout(() => {
-      simulateResult();
-    }, 2000);
-  };
-
-  const simulateResult = async () => {
-    setIsListening(false);
-
-    // Simulate random success/failure
-    const isCorrect = Math.random() > 0.3;
-    
-    if (isCorrect) {
-      setCorrectCount(prev => prev + 1);
-      await ttsService.speak('Correct!');
-    } else {
-      await ttsService.speak('Try again');
-    }
-
-    // Next command after feedback
-    setTimeout(() => {
-      if (isSessionActive) {
-        issueNextCommand();
-      }
-    }, 1500);
-  };
-
-  const accuracy = commandCount > 0 ? Math.round((correctCount / commandCount) * 100) : 0;
+  const progressPercentage = (progress.sessionsToday / progress.goal) * 100;
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.logo, { color: colors.primary }]}>FretPro</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Practice Hub</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Practice Mode
+          Build your skills daily
         </Text>
       </View>
 
-      {/* Stats */}
-      {isSessionActive && (
-        <View style={styles.statsContainer}>
-          <View style={[styles.statBox, { 
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
-          }]}>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {commandCount}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Commands
-            </Text>
-          </View>
-
-          <View style={[styles.statBox, { 
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
-          }]}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {accuracy}%
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Accuracy
-            </Text>
-          </View>
-
-          <View style={[styles.statBox, { 
-            backgroundColor: colors.backgroundSecondary,
-            borderColor: colors.border,
-          }]}>
-            <Text style={[styles.statValue, { color: colors.success }]}>
-              {correctCount}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Correct
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Command Display - Only show when session is active */}
-      {isSessionActive && (
-        <View style={[styles.commandContainer, { 
-          backgroundColor: colors.backgroundSecondary,
-          borderColor: colors.border,
-        }]}>
-          {currentCommand ? (
-            <>
-              <View style={styles.noteContainer}>
-                <Text style={[styles.noteText, { color: colors.primary }]}>
-                  {currentCommand.note}
-                </Text>
-                <Text style={[styles.octaveText, { color: colors.textSecondary }]}>
-                  {currentCommand.octave}
-                </Text>
-              </View>
-
-              <Text style={[styles.stringText, { color: colors.text }]}>
-                {getStringDisplayName(currentCommand.string)}
-              </Text>
-
-              <Text style={[styles.fretText, { color: colors.textSecondary }]}>
-                {currentCommand.fret === 0 ? 'Open' : `Fret ${currentCommand.fret}`}
-              </Text>
-
-              {isListening && (
-                <View style={styles.listeningIndicator}>
-                  <View style={[styles.listeningDot, { backgroundColor: colors.error }]} />
-                  <Text style={[styles.listeningText, { color: colors.textSecondary }]}>
-                    Listening...
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : null}
-        </View>
-      )}
-
-      {/* Controls */}
-      <View style={[styles.controls, !isSessionActive && styles.controlsCentered]}>
-        {!isSessionActive ? (
+      {/* Practice Modes */}
+      <View style={styles.modesSection}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Practice Modes</Text>
+        
+        {practiceMode.map((mode) => (
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={startSession}
+            key={mode.id}
+            style={[styles.modeCard, {
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.border,
+            }]}
+            onPress={() => router.push(mode.route as any)}
           >
-            <Text style={[styles.primaryButtonText, { color: colors.background }]}>
-              Start Practice
-            </Text>
+            <View style={[styles.modeIcon, { backgroundColor: mode.color + '20' }]}>
+              <IconSymbol name={mode.icon} size={32} color={mode.color} />
+            </View>
+            
+            <View style={styles.modeContent}>
+              <Text style={[styles.modeTitle, { color: colors.text }]}>
+                {mode.title}
+              </Text>
+              <Text style={[styles.modeDescription, { color: colors.textSecondary }]}>
+                {mode.description}
+              </Text>
+            </View>
+
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: colors.error }]}
-            onPress={endSession}
-          >
-            <Text style={[styles.secondaryButtonText, { color: colors.error }]}>
-              End Session
-            </Text>
-          </TouchableOpacity>
-        )}
+        ))}
+      </View>
+
+      {/* Quick Tips */}
+      <View style={[styles.tipsCard, { 
+        backgroundColor: colors.primary + '10',
+        borderColor: colors.primary + '30',
+      }]}>
+        <Text style={[styles.tipsTitle, { color: colors.primary }]}>💡 Pro Tip</Text>
+        <Text style={[styles.tipsText, { color: colors.text }]}>
+          Practice for just 10 minutes daily to build muscle memory and improve faster!
+        </Text>
       </View>
     </ScrollView>
   );
-}
-
-function getStringDisplayName(string: string): string {
-  const names: Record<string, string> = {
-    E2: 'Low E String',
-    A2: 'A String',
-    D3: 'D String',
-    G3: 'G String',
-    B3: 'B String',
-    E4: 'High E String',
-  };
-  return names[string] || string;
 }
 
 const styles = StyleSheet.create({
@@ -216,118 +139,131 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    alignItems: 'center',
     marginTop: 40,
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  logo: {
-    fontSize: 40,
+  title: {
+    fontSize: 32,
     fontWeight: '800',
-    letterSpacing: -1,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
     fontWeight: '500',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statBox: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
+  progressCard: {
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 32,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  streakBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  progressBarSection: {
+    marginBottom: 16,
+  },
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#00000020',
+  },
   statValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 4,
   },
-  commandContainer: {
-    padding: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    alignItems: 'center',
-    minHeight: 280,
-    justifyContent: 'center',
+  modesSection: {
     marginBottom: 24,
   },
-  noteContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 20,
-  },
-  noteText: {
-    fontSize: 80,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: '700',
-    letterSpacing: -2,
+    marginBottom: 16,
   },
-  octaveText: {
-    fontSize: 40,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  stringText: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  fretText: {
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  placeholderText: {
-    fontSize: 24,
-    fontWeight: '500',
-  },
-  listeningIndicator: {
+  modeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    gap: 8,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 16,
   },
-  listeningDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  modeIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  listeningText: {
+  modeContent: {
+    flex: 1,
+  },
+  modeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modeDescription: {
     fontSize: 14,
     fontWeight: '500',
   },
-  controls: {
-    marginBottom: 24,
+  tipsCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  controlsCentered: {
-    flex: 1,
-    justifyContent: 'center',
-    marginTop: 100,
-  },
-  primaryButton: {
-    paddingVertical: 18,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 18,
+  tipsTitle: {
+    fontSize: 16,
     fontWeight: '700',
+    marginBottom: 8,
   },
-  secondaryButton: {
-    paddingVertical: 18,
-    borderRadius: 14,
-    borderWidth: 2,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
+  tipsText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
   },
 });

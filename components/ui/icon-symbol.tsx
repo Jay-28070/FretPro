@@ -37,6 +37,9 @@ const MAPPING = {
   'xmark': 'close',
   'person.badge.plus': 'person-add',
   
+  // Practice icons
+  'music.note.list': 'queue-music',
+  
   // Account settings icons
   'lock.fill': 'lock',
   
