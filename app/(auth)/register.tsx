@@ -12,14 +12,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function RegisterScreen() {
@@ -35,18 +35,15 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = async () => {
-    // Trim inputs
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
     const trimmedEmail = email.trim();
 
-    // Validation
     if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !password.trim()) {
       showToast('Please fill in all fields', 'error');
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
       showToast('Please enter a valid email address', 'error');
@@ -63,27 +60,19 @@ export default function RegisterScreen() {
       return;
     }
 
-    console.log('📝 Attempting registration with email:', trimmedEmail);
-
     try {
       await signUp(trimmedEmail, password, trimmedFirstName, trimmedLastName);
-      console.log('✅ Registration successful');
       showToast('Account created successfully!', 'success');
-      // Auth context will handle navigation after successful signup
     } catch (error: any) {
-      console.error('❌ Registration error:', error);
       showToast(error.message || 'Could not create account', 'error');
     }
   };
 
   const handleGoogleSignIn = async () => {
-    console.log('🔐 Attempting Google sign in...');
     try {
       await signInWithGoogle();
-      console.log('✅ Google sign in successful');
       showToast('Welcome!', 'success');
     } catch (error: any) {
-      console.error('❌ Google sign in error:', error);
       showToast(error.message || 'Could not sign in with Google', 'error');
     }
   };

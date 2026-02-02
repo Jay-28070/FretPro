@@ -50,17 +50,11 @@ export default function ProfileScreen() {
         return;
       }
 
-      console.log('📊 Loading profile for user:', user.uid);
-
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         
         if (userDoc.exists()) {
           const data = userDoc.data();
-          console.log('✅ Profile loaded from Firestore:', data);
-          console.log('📝 First Name:', data.firstName);
-          console.log('📝 Last Name:', data.lastName);
-          
           setProfile({
             firstName: data.firstName || 'User',
             lastName: data.lastName || '',
@@ -76,10 +70,6 @@ export default function ProfileScreen() {
             }
           });
         } else {
-          console.log('⚠️ User document not found, using defaults');
-          console.log('👤 User displayName:', user.displayName);
-          console.log('📧 User email:', user.email);
-          
           setProfile({
             firstName: user.displayName?.split(' ')[0] || 'User',
             lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
@@ -96,11 +86,6 @@ export default function ProfileScreen() {
           });
         }
       } catch (error: any) {
-        console.error('❌ Firestore error:', error);
-        console.log('Error code:', error.code);
-        console.log('Error message:', error.message);
-        
-        // Use default profile from auth (works even without Firestore rules)
         setProfile({
           firstName: user.displayName?.split(' ')[0] || 'User',
           lastName: user.displayName?.split(' ').slice(1).join(' ') || '',

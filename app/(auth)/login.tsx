@@ -35,39 +35,30 @@ export default function LoginScreen() {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
 
-    // Validate inputs
     if (!trimmedEmail || !trimmedPassword) {
       showToast('Please enter both email and password', 'error');
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
       showToast('Please enter a valid email address', 'error');
       return;
     }
 
-    console.log('🔐 Attempting sign in with email:', trimmedEmail);
-
     try {
       await signIn(trimmedEmail, trimmedPassword);
-      console.log('✅ Sign in successful');
       showToast('Welcome back!', 'success');
     } catch (error: any) {
-      console.error('❌ Sign in error:', error);
       showToast(error.message || 'Invalid email or password', 'error');
     }
   };
 
   const handleGoogleSignIn = async () => {
-    console.log('🔐 Attempting Google sign in...');
     try {
       await signInWithGoogle();
-      console.log('✅ Google sign in successful');
       showToast('Welcome!', 'success');
     } catch (error: any) {
-      console.error('❌ Google sign in error:', error);
       showToast(error.message || 'Could not sign in with Google', 'error');
     }
   };

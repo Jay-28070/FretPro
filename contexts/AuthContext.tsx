@@ -55,11 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      // Check if user document exists, if not create a basic one
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       if (!userDoc.exists()) {
-        console.log('⚠️ User document not found, creating one...');
-        // This shouldn't happen for newly registered users, but handle legacy accounts
         await setDoc(doc(db, 'users', userCredential.user.uid), {
           firstName: 'User',
           lastName: '',
@@ -78,7 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error: any) {
-      console.error('Sign in error:', error);
       throw new Error(error.message || 'Failed to sign in');
     } finally {
       setIsLoading(false);
@@ -119,11 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setIsLoading(true);
     try {
-      console.log('AuthContext: Signing out...');
       await firebaseSignOut(auth);
-      console.log('AuthContext: Sign out successful');
     } catch (error: any) {
-      console.error('AuthContext: Sign out error:', error);
       throw new Error(error.message || 'Failed to sign out');
     } finally {
       setIsLoading(false);

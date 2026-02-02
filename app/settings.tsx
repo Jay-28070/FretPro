@@ -7,13 +7,14 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
   const { signOut } = useAuth();
   const colors = Colors[colorScheme];
+  const router = useRouter();
 
   const handleThemeChange = async (preference: 'light' | 'dark' | 'system') => {
     await setThemePreference(preference);
@@ -149,6 +150,26 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
+          
+          <TouchableOpacity
+            style={[styles.card, styles.accountCard, { 
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.border,
+            }]}
+            onPress={() => router.push('/account-settings')}
+          >
+            <Text style={[styles.accountCardTitle, { color: colors.text }]}>
+              Personal Information
+            </Text>
+            <Text style={[styles.accountCardSubtitle, { color: colors.textSecondary }]}>
+              Update name and password
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* About Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
@@ -224,6 +245,17 @@ const styles = StyleSheet.create({
   aboutText: {
     fontSize: 14,
     marginBottom: 4,
+  },
+  accountCard: {
+    paddingVertical: 20,
+  },
+  accountCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  accountCardSubtitle: {
+    fontSize: 14,
   },
   signOutButton: {
     paddingVertical: 16,
