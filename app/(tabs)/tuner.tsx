@@ -1,5 +1,5 @@
 /**
- * Tuner Screen
+ * Tuner Screen (Phase 2 Implementation)
  * 
  * Automatic pitch detection tuner with real-time visual feedback.
  * Auto-starts on mount with beautiful animated UI.
@@ -8,30 +8,10 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Audio } from 'expo-av';
+import { tunerService } from '@/services/audio/TunerService';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// All notes for detection
-const ALL_NOTES = [
-  { name: 'C', freq: 32.70 }, { name: 'C#', freq: 34.65 }, { name: 'D', freq: 36.71 },
-  { name: 'D#', freq: 38.89 }, { name: 'E', freq: 41.20 }, { name: 'F', freq: 43.65 },
-  { name: 'F#', freq: 46.25 }, { name: 'G', freq: 49.00 }, { name: 'G#', freq: 51.91 },
-  { name: 'A', freq: 55.00 }, { name: 'A#', freq: 58.27 }, { name: 'B', freq: 61.74 },
-  { name: 'C', freq: 65.41 }, { name: 'C#', freq: 69.30 }, { name: 'D', freq: 73.42 },
-  { name: 'D#', freq: 77.78 }, { name: 'E', freq: 82.41 }, { name: 'F', freq: 87.31 },
-  { name: 'F#', freq: 92.50 }, { name: 'G', freq: 98.00 }, { name: 'G#', freq: 103.83 },
-  { name: 'A', freq: 110.00 }, { name: 'A#', freq: 116.54 }, { name: 'B', freq: 123.47 },
-  { name: 'C', freq: 130.81 }, { name: 'C#', freq: 138.59 }, { name: 'D', freq: 146.83 },
-  { name: 'D#', freq: 155.56 }, { name: 'E', freq: 164.81 }, { name: 'F', freq: 174.61 },
-  { name: 'F#', freq: 185.00 }, { name: 'G', freq: 196.00 }, { name: 'G#', freq: 207.65 },
-  { name: 'A', freq: 220.00 }, { name: 'A#', freq: 233.08 }, { name: 'B', freq: 246.94 },
-  { name: 'C', freq: 261.63 }, { name: 'C#', freq: 277.18 }, { name: 'D', freq: 293.66 },
-  { name: 'D#', freq: 311.13 }, { name: 'E', freq: 329.63 }, { name: 'F', freq: 349.23 },
-  { name: 'F#', freq: 369.99 }, { name: 'G', freq: 392.00 }, { name: 'G#', freq: 415.30 },
-  { name: 'A', freq: 440.00 }, { name: 'A#', freq: 466.16 }, { name: 'B', freq: 493.88 },
-];
 
 export default function TunerScreen() {
   const { colorScheme } = useTheme();
@@ -42,22 +22,32 @@ export default function TunerScreen() {
   const [frequency, setFrequency] = useState<number>(0);
   const [cents, setCents] = useState<number>(0);
   const [tuningStatus, setTuningStatus] = useState<'in-tune' | 'close' | 'far'>('far');
+  const [confidence, setConfidence] = useState<number>(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const meterAnim = useRef(new Animated.Value(0)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
-  const recording = useRef<Audio.Recording | null>(null);
 
   useEffect(() => {
     const init = async () => {
-      await requestAudioPermissions();
-      await startListening(); // Auto-start
+      try {
+        // Add callback to receive tuner updates
+        tunerService.addCallback(handleTunerUpdate);
+
+        // Start tuner (auto-detect mode)
+        await tunerService.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Failed to start tuner:', error);
+      }
     };
 
     init();
 
     return () => {
-      stopListening();
+      // Cleanup
+      tunerService.removeCallback(handleTunerUpdate);
+      tunerService.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,79 +91,61 @@ export default function TunerScreen() {
     }
   }, [isListening]);
 
-  const requestAudioPermissions = async () => {
-    try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('Audio permission not granted');
-      }
-    } catch (error) {
-      console.error('Error requesting audio permissions:', error);
-    }
-  };
+  const handleTunerUpdate = (state: any) => {
+    setFrequency(state.currentFrequency || 0);
+    setCents(state.centsOff);
+    setConfidence(state.confidence);
 
-  const startListening = async () => {
-    try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
-      recording.current = newRecording;
-      setIsListening(true);
-
-      // Call pitch detection once to initialize
-      await detectPitch();
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-    }
-  };
-
-  const stopListening = async () => {
-    try {
-      if (recording.current) {
-        await recording.current.stopAndUnloadAsync();
-        recording.current = null;
-      }
-      setIsListening(false);
+    // Update detected note based on target string or frequency
+    if (state.targetString && state.currentFrequency && state.confidence > 0.5) {
+      const stringInfo = tunerService.getStringInfo(state.targetString);
+      setDetectedNote(stringInfo.name);
+    } else if (state.currentFrequency && state.confidence > 0.5) {
+      // Auto-detect closest note
+      const closestNote = findClosestNote(state.currentFrequency);
+      setDetectedNote(closestNote.name);
+    } else {
       setDetectedNote('--');
-      setFrequency(0);
-      setCents(0);
+    }
+
+    // Update tuning status
+    if (state.isInTune) {
+      setTuningStatus('in-tune');
+    } else if (Math.abs(state.centsOff) <= 25) {
+      setTuningStatus('close');
+    } else {
       setTuningStatus('far');
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
     }
+
+    // Animate meter needle
+    const meterPosition = Math.max(-1, Math.min(1, state.centsOff / 50)); // ±50 cents = full scale
+    Animated.spring(meterAnim, {
+      toValue: meterPosition,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
   };
 
-  const detectPitch = async () => {
-    if (!recording.current) return;
-
-    try {
-      // Get recording status to check if audio is being captured
-      const status = await recording.current.getStatusAsync();
-
-      if (status.isRecording) {
-        // For now, show that we're listening but not detecting random notes
-        // Real pitch detection will be implemented in Phase 2
-        setDetectedNote('--');
-        setFrequency(0);
-        setCents(0);
-        setTuningStatus('far');
-
-        // Reset meter to center
-        Animated.spring(meterAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    } catch (error) {
-      console.error('Error in pitch detection:', error);
-    }
-  };
+  // All notes for detection
+  const ALL_NOTES = [
+    { name: 'C', freq: 32.70 }, { name: 'C#', freq: 34.65 }, { name: 'D', freq: 36.71 },
+    { name: 'D#', freq: 38.89 }, { name: 'E', freq: 41.20 }, { name: 'F', freq: 43.65 },
+    { name: 'F#', freq: 46.25 }, { name: 'G', freq: 49.00 }, { name: 'G#', freq: 51.91 },
+    { name: 'A', freq: 55.00 }, { name: 'A#', freq: 58.27 }, { name: 'B', freq: 61.74 },
+    { name: 'C', freq: 65.41 }, { name: 'C#', freq: 69.30 }, { name: 'D', freq: 73.42 },
+    { name: 'D#', freq: 77.78 }, { name: 'E', freq: 82.41 }, { name: 'F', freq: 87.31 },
+    { name: 'F#', freq: 92.50 }, { name: 'G', freq: 98.00 }, { name: 'G#', freq: 103.83 },
+    { name: 'A', freq: 110.00 }, { name: 'A#', freq: 116.54 }, { name: 'B', freq: 123.47 },
+    { name: 'C', freq: 130.81 }, { name: 'C#', freq: 138.59 }, { name: 'D', freq: 146.83 },
+    { name: 'D#', freq: 155.56 }, { name: 'E', freq: 164.81 }, { name: 'F', freq: 174.61 },
+    { name: 'F#', freq: 185.00 }, { name: 'G', freq: 196.00 }, { name: 'G#', freq: 207.65 },
+    { name: 'A', freq: 220.00 }, { name: 'A#', freq: 233.08 }, { name: 'B', freq: 246.94 },
+    { name: 'C', freq: 261.63 }, { name: 'C#', freq: 277.18 }, { name: 'D', freq: 293.66 },
+    { name: 'D#', freq: 311.13 }, { name: 'E', freq: 329.63 }, { name: 'F', freq: 349.23 },
+    { name: 'F#', freq: 369.99 }, { name: 'G', freq: 392.00 }, { name: 'G#', freq: 415.30 },
+    { name: 'A', freq: 440.00 }, { name: 'A#', freq: 466.16 }, { name: 'B', freq: 493.88 },
+  ];
 
   const findClosestNote = (freq: number) => {
     let closest = ALL_NOTES[0];
@@ -188,10 +160,6 @@ export default function TunerScreen() {
     }
 
     return closest;
-  };
-
-  const getCentsOff = (detectedFreq: number, targetFreq: number) => {
-    return Math.round(1200 * Math.log2(detectedFreq / targetFreq));
   };
 
   const getStatusColor = () => {
@@ -331,7 +299,7 @@ export default function TunerScreen() {
 
       {/* Hint */}
       <Text style={[styles.hint, { color: colors.textTertiary }]}>
-        Play any note on your guitar
+        Play any note on your guitar • Phase 2: Real audio detection
       </Text>
     </SafeAreaView>
   );
