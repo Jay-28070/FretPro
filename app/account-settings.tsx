@@ -15,15 +15,15 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function AccountSettingsScreen() {
@@ -33,19 +33,22 @@ export default function AccountSettingsScreen() {
 
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  
+
   const [currentName, setCurrentName] = useState({ firstName: '', lastName: '' });
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
       if (!user) return;
-      
+
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
@@ -264,44 +267,107 @@ export default function AccountSettingsScreen() {
 
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: colors.text }]}>Current Password</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                  placeholder="Enter current password"
-                  placeholderTextColor={colors.textSecondary}
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!loading}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.passwordInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                    placeholder="Enter current password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    secureTextEntry={!showCurrentPassword}
+                    autoCapitalize="none"
+                    editable={!loading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                    disabled={loading}
+                  >
+                    <View style={styles.eyeIcon}>
+                      {showCurrentPassword ? (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.textSecondary }]} />
+                          <View style={[styles.eyeSlash, { backgroundColor: colors.textSecondary }]} />
+                        </>
+                      ) : (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.textSecondary }]} />
+                          <View style={[styles.eyePupil, { backgroundColor: colors.textSecondary }]} />
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: colors.text }]}>New Password</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor={colors.textSecondary}
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!loading}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.passwordInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor={colors.textSecondary}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry={!showNewPassword}
+                    autoCapitalize="none"
+                    editable={!loading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowNewPassword(!showNewPassword)}
+                    disabled={loading}
+                  >
+                    <View style={styles.eyeIcon}>
+                      {showNewPassword ? (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                          <View style={[styles.eyeSlash, { backgroundColor: colors.text }]} />
+                        </>
+                      ) : (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                          <View style={[styles.eyePupil, { backgroundColor: colors.text }]} />
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: colors.text }]}>Confirm New Password</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                  placeholder="Re-enter new password"
-                  placeholderTextColor={colors.textSecondary}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  editable={!loading}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.passwordInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                    placeholder="Re-enter new password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    editable={!loading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={loading}
+                  >
+                    <View style={styles.eyeIcon}>
+                      {showConfirmPassword ? (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                          <View style={[styles.eyeSlash, { backgroundColor: colors.text }]} />
+                        </>
+                      ) : (
+                        <>
+                          <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                          <View style={[styles.eyePupil, { backgroundColor: colors.text }]} />
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -309,9 +375,9 @@ export default function AccountSettingsScreen() {
                 onPress={handleChangePassword}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color={colors.background} /> : (
-                  <Text style={[styles.submitButtonText, { color: colors.background }]}>Change Password</Text>
-                )}
+                <Text style={[styles.submitButtonText, { color: colors.background }]}>
+                  {loading ? 'Changing...' : 'Change Password'}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -339,6 +405,13 @@ const styles = StyleSheet.create({
   inputContainer: { marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, fontSize: 16 },
+  passwordContainer: { position: 'relative' },
+  passwordInput: { height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 16, paddingRight: 50, fontSize: 16 },
+  eyeButton: { position: 'absolute', right: 12, top: 10, padding: 6, backgroundColor: 'rgba(128,128,128,0.2)', borderRadius: 6, minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  eyeIcon: { width: 18, height: 12, alignItems: 'center', justifyContent: 'center' },
+  eyeShape: { width: 18, height: 12, borderWidth: 1.5, borderRadius: 9 },
+  eyePupil: { position: 'absolute', width: 6, height: 6, borderRadius: 3 },
+  eyeSlash: { position: 'absolute', width: 20, height: 1.5, transform: [{ rotate: '45deg' }] },
   submitButton: { height: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   submitButtonText: { fontSize: 16, fontWeight: '700' },
 });

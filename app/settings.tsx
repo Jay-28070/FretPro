@@ -8,7 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Stack, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
@@ -21,42 +21,32 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    // Use native confirm for web compatibility
-    const confirmed = window.confirm('Are you sure you want to sign out?');
-    
-    if (!confirmed) return;
-    
-    console.log('Force logout initiated');
-    
-    // Direct Firebase signout
-    signOut().catch(console.error);
-    
-    // Immediate storage clear
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.clear();
-        sessionStorage.clear();
-        
-        // Clear IndexedDB (Firebase uses this)
-        indexedDB.databases().then(dbs => {
-          dbs.forEach(db => indexedDB.deleteDatabase(db.name));
-        });
-      }
-    } catch (e) {
-      console.error('Storage clear error:', e);
-    }
-    
-    // Force reload after short delay
-    setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
-    }, 500);
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Sign out error:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
     <>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           title: 'Settings',
           headerShown: true,
@@ -65,16 +55,16 @@ export default function SettingsScreen() {
           headerShadowVisible: false,
         }}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
       >
         {/* Theme Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
-          
-          <View style={[styles.card, { 
+
+          <View style={[styles.card, {
             backgroundColor: colors.backgroundSecondary,
             borderColor: colors.border,
           }]}>
@@ -82,7 +72,7 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.themeButton,
-                  { 
+                  {
                     backgroundColor: themePreference === 'light' ? colors.primary : colors.backgroundTertiary,
                     borderColor: colors.border,
                   }
@@ -100,7 +90,7 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.themeButton,
-                  { 
+                  {
                     backgroundColor: themePreference === 'dark' ? colors.primary : colors.backgroundTertiary,
                     borderColor: colors.border,
                   }
@@ -118,7 +108,7 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={[
                   styles.themeButton,
-                  { 
+                  {
                     backgroundColor: themePreference === 'system' ? colors.primary : colors.backgroundTertiary,
                     borderColor: colors.border,
                   }
@@ -139,8 +129,8 @@ export default function SettingsScreen() {
         {/* Audio Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Audio</Text>
-          
-          <View style={[styles.card, { 
+
+          <View style={[styles.card, {
             backgroundColor: colors.backgroundSecondary,
             borderColor: colors.border,
           }]}>
@@ -153,9 +143,9 @@ export default function SettingsScreen() {
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
-          
+
           <TouchableOpacity
-            style={[styles.card, styles.accountCard, { 
+            style={[styles.card, styles.accountCard, {
               backgroundColor: colors.backgroundSecondary,
               borderColor: colors.border,
             }]}
@@ -173,8 +163,8 @@ export default function SettingsScreen() {
         {/* About Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
-          
-          <View style={[styles.card, { 
+
+          <View style={[styles.card, {
             backgroundColor: colors.backgroundSecondary,
             borderColor: colors.border,
           }]}>

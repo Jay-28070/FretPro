@@ -58,8 +58,8 @@ export default function EarTrainingScreen() {
     hard: 0,
   });
 
-  const timeLimit = settings.difficulty === 'easy' ? 10 : 
-                   settings.difficulty === 'medium' ? 7 : 4;
+  const timeLimit = settings.difficulty === 'easy' ? 10 :
+    settings.difficulty === 'medium' ? 7 : 4;
 
   useEffect(() => {
     loadAllHighScores();
@@ -73,12 +73,12 @@ export default function EarTrainingScreen() {
     if (!user) return;
     const difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
     const scores: Record<Difficulty, number> = { easy: 0, medium: 0, hard: 0 };
-    
+
     for (const diff of difficulties) {
       const hs = await scoreService.getHighScore(user.uid, 'ear-training', diff);
       scores[diff] = hs?.score || 0;
     }
-    
+
     setAllHighScores(scores);
   };
 
@@ -114,16 +114,16 @@ export default function EarTrainingScreen() {
   const generateQuestion = () => {
     // Select note pool based on difficulty
     const notePool = settings.difficulty === 'easy' ? NOTES_NATURAL : NOTES_CHROMATIC;
-    
+
     // Pick random target note
     const target = notePool[Math.floor(Math.random() * notePool.length)];
-    
+
     // Pick 2 random wrong answers from the same pool
     const wrongOptions = notePool.filter(n => n !== target);
     const shuffled = wrongOptions.sort(() => Math.random() - 0.5);
     const wrong1 = shuffled[0];
     const wrong2 = shuffled[1];
-    
+
     // Shuffle all 3 options
     const allOptions = [target, wrong1, wrong2].sort(() => Math.random() - 0.5);
 
@@ -131,11 +131,11 @@ export default function EarTrainingScreen() {
       target,
       options: allOptions as [string, string, string],
     });
-    
+
     // Start timer
     setTimeLeft(timeLimit);
     setTimerActive(true);
-    
+
     // Auto-play the sound
     setTimeout(() => playSound(target), 500);
   };
@@ -143,19 +143,19 @@ export default function EarTrainingScreen() {
   const playSound = (target?: string) => {
     const soundTarget = target || currentQuestion?.target;
     if (!soundTarget) return;
-    
+
     setIsPlaying(true);
-    
+
     // Play the actual note sound
     soundGenerator.playNote(soundTarget, 4, 1.5);
-    
+
     // Reset playing state after sound duration
     setTimeout(() => setIsPlaying(false), 1500);
   };
 
   const handleTimeout = () => {
     if (!currentQuestion) return;
-    
+
     setTimerActive(false);
     setTotalQuestions((prev) => prev + 1);
     showToast(`Time's up! It was ${currentQuestion.target}`, 'error');
@@ -182,7 +182,7 @@ export default function EarTrainingScreen() {
   const startListening = () => {
     setIsListening(true);
     showToast('Listening for your guitar...', 'info');
-    
+
     // Simulate detection
     setTimeout(() => {
       setIsListening(false);
@@ -198,7 +198,7 @@ export default function EarTrainingScreen() {
     setCurrentQuestion(null);
     setTimerActive(false);
     const accuracy = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
-    
+
     // Save score and check for high score
     if (user && totalQuestions > 0) {
       const result = await scoreService.saveScore(
@@ -224,7 +224,7 @@ export default function EarTrainingScreen() {
   const accuracy = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 40 }}>
       <Stack.Screen
         options={{
           title: 'Ear Training',
@@ -245,7 +245,7 @@ export default function EarTrainingScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Game Settings</Text>
 
               {/* Difficulty */}
-              <View style={[styles.settingCard, { 
+              <View style={[styles.settingCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -296,7 +296,7 @@ export default function EarTrainingScreen() {
               </View>
 
               {/* Input Mode */}
-              <View style={[styles.settingCard, { 
+              <View style={[styles.settingCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -312,10 +312,10 @@ export default function EarTrainingScreen() {
                     ]}
                     onPress={() => setSettings({ ...settings, inputMode: 'buttons' })}
                   >
-                    <IconSymbol 
-                      name="checkmark" 
-                      size={24} 
-                      color={settings.inputMode === 'buttons' ? colors.background : colors.text} 
+                    <IconSymbol
+                      name="checkmark"
+                      size={24}
+                      color={settings.inputMode === 'buttons' ? colors.background : colors.text}
                     />
                     <Text
                       style={[
@@ -337,10 +337,10 @@ export default function EarTrainingScreen() {
                     ]}
                     onPress={() => setSettings({ ...settings, inputMode: 'guitar' })}
                   >
-                    <IconSymbol 
-                      name="tuningfork" 
-                      size={24} 
-                      color={settings.inputMode === 'guitar' ? colors.background : colors.text} 
+                    <IconSymbol
+                      name="tuningfork"
+                      size={24}
+                      color={settings.inputMode === 'guitar' ? colors.background : colors.text}
                     />
                     <Text
                       style={[
@@ -356,7 +356,7 @@ export default function EarTrainingScreen() {
             </View>
 
             {/* Instructions */}
-            <View style={[styles.instructionsCard, { 
+            <View style={[styles.instructionsCard, {
               backgroundColor: colors.primary + '10',
               borderColor: colors.primary + '30',
             }]}>
@@ -372,7 +372,7 @@ export default function EarTrainingScreen() {
 
             {/* High Scores Summary */}
             {user && (
-              <View style={[styles.highScoresCard, { 
+              <View style={[styles.highScoresCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -381,17 +381,17 @@ export default function EarTrainingScreen() {
                   {(['easy', 'medium', 'hard'] as Difficulty[]).map((diff) => {
                     const score = allHighScores[diff] || 0;
                     return (
-                      <View key={diff} style={[styles.highScoreItem, { 
+                      <View key={diff} style={[styles.highScoreItem, {
                         backgroundColor: settings.difficulty === diff ? colors.primary + '10' : colors.background,
                         borderColor: settings.difficulty === diff ? colors.primary : colors.border,
                       }]}>
-                        <Text style={[styles.highScoreDiff, { 
-                          color: settings.difficulty === diff ? colors.primary : colors.textSecondary 
+                        <Text style={[styles.highScoreDiff, {
+                          color: settings.difficulty === diff ? colors.primary : colors.textSecondary
                         }]}>
                           {diff.charAt(0).toUpperCase() + diff.slice(1)}
                         </Text>
-                        <Text style={[styles.highScoreValue, { 
-                          color: score > 0 ? colors.primary : colors.textTertiary 
+                        <Text style={[styles.highScoreValue, {
+                          color: score > 0 ? colors.primary : colors.textTertiary
                         }]}>
                           {score > 0 ? score : '—'}
                         </Text>
@@ -415,21 +415,21 @@ export default function EarTrainingScreen() {
           <>
             {/* Stats */}
             <View style={styles.statsRow}>
-              <View style={[styles.statBox, { 
+              <View style={[styles.statBox, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
                 <Text style={[styles.statValue, { color: colors.text }]}>{totalQuestions}</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Questions</Text>
               </View>
-              <View style={[styles.statBox, { 
+              <View style={[styles.statBox, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
                 <Text style={[styles.statValue, { color: colors.success }]}>{accuracy}%</Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Accuracy</Text>
               </View>
-              <View style={[styles.statBox, { 
+              <View style={[styles.statBox, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -439,11 +439,11 @@ export default function EarTrainingScreen() {
             </View>
 
             {/* Timer */}
-            <View style={[styles.timerCard, { 
+            <View style={[styles.timerCard, {
               backgroundColor: timeLeft <= 2 ? colors.error + '20' : colors.primary + '20',
               borderColor: timeLeft <= 2 ? colors.error : colors.primary,
             }]}>
-              <Text style={[styles.timerText, { 
+              <Text style={[styles.timerText, {
                 color: timeLeft <= 2 ? colors.error : colors.primary,
               }]}>
                 {timeLeft}s
@@ -451,7 +451,7 @@ export default function EarTrainingScreen() {
             </View>
 
             {/* Question Display */}
-            <View style={[styles.questionCard, { 
+            <View style={[styles.questionCard, {
               backgroundColor: colors.backgroundSecondary,
               borderColor: colors.border,
             }]}>
@@ -460,7 +460,7 @@ export default function EarTrainingScreen() {
               </Text>
 
               <TouchableOpacity
-                style={[styles.playButton, { 
+                style={[styles.playButton, {
                   backgroundColor: isPlaying ? colors.textSecondary : colors.primary,
                 }]}
                 onPress={() => playSound()}
@@ -479,7 +479,7 @@ export default function EarTrainingScreen() {
                 {currentQuestion?.options.map((option) => (
                   <TouchableOpacity
                     key={option}
-                    style={[styles.answerButton, { 
+                    style={[styles.answerButton, {
                       backgroundColor: colors.backgroundSecondary,
                       borderColor: colors.border,
                     }]}
@@ -496,7 +496,7 @@ export default function EarTrainingScreen() {
                 <TouchableOpacity
                   style={[
                     styles.listenButton,
-                    { 
+                    {
                       backgroundColor: isListening ? colors.error : colors.primary,
                     },
                   ]}
@@ -526,55 +526,55 @@ export default function EarTrainingScreen() {
           </>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  settingsSection: { marginBottom: 24 },
+  content: { padding: 12, paddingBottom: 30 },
+  settingsSection: { marginBottom: 20 },
   sectionTitle: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
-  settingCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
+  settingCard: { padding: 8, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
   highScoreHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  highScoreBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  highScoreText: { fontSize: 14, fontWeight: '700' },
-  settingLabel: { fontSize: 16, fontWeight: '600' },
-  optionsRow: { flexDirection: 'row', gap: 12 },
+  highScoreBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  highScoreText: { fontSize: 12, fontWeight: '700' },
+  settingLabel: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  optionsRow: { flexDirection: 'column', gap: 8 },
   optionsColumn: { gap: 12 },
-  optionButton: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', gap: 8 },
+  optionButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12, borderWidth: 2, alignItems: 'center', minHeight: 50 },
   optionText: { fontSize: 14, fontWeight: '600' },
-  difficultyButton: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 12, borderWidth: 2 },
+  difficultyButton: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 12, borderWidth: 2, marginBottom: 8 },
   difficultyText: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   difficultyDesc: { fontSize: 12, fontWeight: '500' },
-  instructionsCard: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 24 },
+  instructionsCard: { padding: 8, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
   instructionsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  instructionsText: { fontSize: 14, lineHeight: 22 },
-  highScoresCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 24 },
-  highScoresTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
-  highScoresGrid: { flexDirection: 'row', gap: 12 },
-  highScoreItem: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
-  highScoreDiff: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
-  highScoreValue: { fontSize: 24, fontWeight: '900' },
-  startButton: { paddingVertical: 18, borderRadius: 14, alignItems: 'center' },
+  instructionsText: { fontSize: 14, lineHeight: 20 },
+  highScoresCard: { padding: 8, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
+  highScoresTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  highScoresGrid: { flexDirection: 'column', gap: 8 },
+  highScoreItem: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center', minHeight: 60 },
+  highScoreDiff: { fontSize: 10, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase' },
+  highScoreValue: { fontSize: 20, fontWeight: '900' },
+  startButton: { paddingVertical: 18, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   startButtonText: { fontSize: 18, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  statBox: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  statsRow: { flexDirection: 'column', gap: 8, marginBottom: 20 },
+  statBox: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', minHeight: 70 },
   statValue: { fontSize: 24, fontWeight: '700' },
-  statLabel: { fontSize: 12, fontWeight: '500', marginTop: 4 },
-  timerCard: { padding: 20, borderRadius: 16, borderWidth: 3, alignItems: 'center', marginBottom: 24 },
-  timerText: { fontSize: 48, fontWeight: '900' },
-  questionCard: { padding: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', marginBottom: 24 },
-  questionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 24, textAlign: 'center' },
-  playButton: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12 },
+  statLabel: { fontSize: 12, fontWeight: '500', marginTop: 4, textAlign: 'center' },
+  timerCard: { padding: 12, borderRadius: 12, borderWidth: 2, alignItems: 'center', marginBottom: 12 },
+  timerText: { fontSize: 36, fontWeight: '900' },
+  questionCard: { padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', marginBottom: 12 },
+  questionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
+  playButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12 },
   playButtonText: { fontSize: 16, fontWeight: '700' },
-  answersRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  answerButton: { flex: 1, paddingVertical: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center' },
-  answerText: { fontSize: 24, fontWeight: '900' },
-  guitarInputSection: { alignItems: 'center', marginBottom: 24 },
-  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 20, paddingHorizontal: 40, borderRadius: 14, marginBottom: 12 },
-  listenButtonText: { fontSize: 18, fontWeight: '700' },
-  guitarHint: { fontSize: 14, fontWeight: '500' },
-  endButton: { paddingVertical: 18, borderRadius: 14, borderWidth: 2, alignItems: 'center' },
+  answersRow: { flexDirection: 'column', gap: 8, marginBottom: 20 },
+  answerButton: { flex: 1, paddingVertical: 20, paddingHorizontal: 8, borderRadius: 12, borderWidth: 2, alignItems: 'center', minHeight: 60 },
+  answerText: { fontSize: 20, fontWeight: '900' },
+  guitarInputSection: { alignItems: 'center', marginBottom: 20 },
+  listenButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12, marginBottom: 12 },
+  listenButtonText: { fontSize: 16, fontWeight: '700' },
+  guitarHint: { fontSize: 14, fontWeight: '500', textAlign: 'center' },
+  endButton: { paddingVertical: 18, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
   endButtonText: { fontSize: 18, fontWeight: '700' },
 });

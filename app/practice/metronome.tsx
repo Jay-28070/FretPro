@@ -75,6 +75,7 @@ export default function MetronomeGameScreen() {
       stopMetronome();
     }
     return () => stopMetronome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, settings.bpm, settings.mode]);
 
   const playClick = (isAccent: boolean = false) => {
@@ -121,7 +122,7 @@ export default function MetronomeGameScreen() {
   const startNormalMetronome = () => {
     setCurrentBeat(1);
     setCurrentBar(1);
-    
+
     const intervalMs = (60 / settings.bpm) * 1000;
     let beat = 1;
 
@@ -145,7 +146,7 @@ export default function MetronomeGameScreen() {
     setCurrentBeat(1);
     setCurrentBar(1);
     setGamePhase('playing');
-    
+
     const intervalMs = (60 / settings.bpm) * 1000;
     let beat = 1;
     let bar = 1;
@@ -213,7 +214,7 @@ export default function MetronomeGameScreen() {
     setIsPlaying(true);
     setRoundResults([]);
     setElapsedSeconds(0);
-    
+
     // Start timer
     timerInterval.current = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
@@ -223,7 +224,7 @@ export default function MetronomeGameScreen() {
   const stopSession = () => {
     setIsPlaying(false);
     setShowSettings(true);
-    
+
     if (settings.mode === 'game' && roundResults.length > 0) {
       const successRate = Math.round((roundResults.filter(r => r.accuracy === 'perfect' || r.accuracy === 'good').length / roundResults.length) * 100);
       showToast(`Session complete! Success rate: ${successRate}%`, 'success');
@@ -239,7 +240,7 @@ export default function MetronomeGameScreen() {
 
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 40 }}>
       <Stack.Screen
         options={{
           title: 'Rhythm Master',
@@ -260,7 +261,7 @@ export default function MetronomeGameScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
 
               {/* Mode Toggle */}
-              <View style={[styles.settingCard, { 
+              <View style={[styles.settingCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -276,10 +277,10 @@ export default function MetronomeGameScreen() {
                     ]}
                     onPress={() => setSettings({ ...settings, mode: 'game' })}
                   >
-                    <IconSymbol 
-                      name="trophy.fill" 
-                      size={24} 
-                      color={settings.mode === 'game' ? colors.background : colors.text} 
+                    <IconSymbol
+                      name="trophy.fill"
+                      size={24}
+                      color={settings.mode === 'game' ? colors.background : colors.text}
                     />
                     <Text
                       style={[
@@ -301,10 +302,10 @@ export default function MetronomeGameScreen() {
                     ]}
                     onPress={() => setSettings({ ...settings, mode: 'metronome' })}
                   >
-                    <IconSymbol 
-                      name="tuningfork" 
-                      size={24} 
-                      color={settings.mode === 'metronome' ? colors.background : colors.text} 
+                    <IconSymbol
+                      name="tuningfork"
+                      size={24}
+                      color={settings.mode === 'metronome' ? colors.background : colors.text}
                     />
                     <Text
                       style={[
@@ -319,14 +320,14 @@ export default function MetronomeGameScreen() {
               </View>
 
               {/* BPM Input */}
-              <View style={[styles.settingCard, { 
+              <View style={[styles.settingCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
                 <Text style={[styles.settingLabel, { color: colors.text }]}>Tempo (BPM)</Text>
                 <View style={styles.bpmInputContainer}>
                   <TextInput
-                    style={[styles.bpmInput, { 
+                    style={[styles.bpmInput, {
                       color: colors.primary,
                       borderColor: colors.border,
                       backgroundColor: colors.background,
@@ -346,7 +347,7 @@ export default function MetronomeGameScreen() {
               </View>
 
               {/* Time Signature */}
-              <View style={[styles.settingCard, { 
+              <View style={[styles.settingCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -380,7 +381,7 @@ export default function MetronomeGameScreen() {
               {/* Game Settings - Only for Game Mode */}
               {settings.mode === 'game' && (
                 <>
-                  <View style={[styles.settingCard, { 
+                  <View style={[styles.settingCard, {
                     backgroundColor: colors.backgroundSecondary,
                     borderColor: colors.border,
                   }]}>
@@ -411,7 +412,7 @@ export default function MetronomeGameScreen() {
                     </View>
                   </View>
 
-                  <View style={[styles.settingCard, { 
+                  <View style={[styles.settingCard, {
                     backgroundColor: colors.backgroundSecondary,
                     borderColor: colors.border,
                   }]}>
@@ -446,7 +447,7 @@ export default function MetronomeGameScreen() {
             </View>
 
             {/* Instructions */}
-            <View style={[styles.instructionsCard, { 
+            <View style={[styles.instructionsCard, {
               backgroundColor: colors.primary + '10',
               borderColor: colors.primary + '30',
             }]}>
@@ -454,7 +455,7 @@ export default function MetronomeGameScreen() {
                 {settings.mode === 'game' ? 'Hold-Out Game' : 'Metronome Mode'}
               </Text>
               <Text style={[styles.instructionsText, { color: colors.text }]}>
-                {settings.mode === 'game' 
+                {settings.mode === 'game'
                   ? `• Metronome plays for ${settings.barsBeforeSilent} bar(s)\n• Goes completely silent for ${settings.silentBars} bar(s)\n• Keep tempo in your head (no visual cues!)\n• Metronome resumes to check your timing`
                   : '• Simple metronome for practice\n• Visual and audio clicks\n• Adjust tempo and time signature'
                 }
@@ -475,21 +476,21 @@ export default function MetronomeGameScreen() {
             {/* Stats - Only for Game Mode */}
             {settings.mode === 'game' && (
               <View style={styles.statsRow}>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
                   <Text style={[styles.statValue, { color: colors.text }]}>{roundResults.length}</Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rounds</Text>
                 </View>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
                   <Text style={[styles.statValue, { color: colors.primary }]}>{settings.bpm}</Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BPM</Text>
                 </View>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
@@ -502,21 +503,21 @@ export default function MetronomeGameScreen() {
             {/* Stats - Normal Metronome Mode */}
             {settings.mode === 'metronome' && (
               <View style={styles.statsRow}>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
                   <Text style={[styles.statValue, { color: colors.primary }]}>{settings.bpm}</Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BPM</Text>
                 </View>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
                   <Text style={[styles.statValue, { color: colors.text }]}>{settings.timeSignature}</Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Time Sig</Text>
                 </View>
-                <View style={[styles.statBox, { 
+                <View style={[styles.statBox, {
                   backgroundColor: colors.backgroundSecondary,
                   borderColor: colors.border,
                 }]}>
@@ -528,7 +529,7 @@ export default function MetronomeGameScreen() {
 
             {/* Metronome Visual - Only show in normal mode OR during playing phase in game mode */}
             {(settings.mode === 'metronome' || (settings.mode === 'game' && gamePhase === 'playing')) && (
-              <View style={[styles.metronomeContainer, { 
+              <View style={[styles.metronomeContainer, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -572,7 +573,7 @@ export default function MetronomeGameScreen() {
 
             {/* Silent Phase Message - Game Mode Only */}
             {settings.mode === 'game' && gamePhase === 'silent' && (
-              <View style={[styles.silentContainer, { 
+              <View style={[styles.silentContainer, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -584,7 +585,7 @@ export default function MetronomeGameScreen() {
 
             {/* Recent Results - Game Mode Only */}
             {settings.mode === 'game' && roundResults.length > 0 && (
-              <View style={[styles.resultsCard, { 
+              <View style={[styles.resultsCard, {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               }]}>
@@ -596,10 +597,10 @@ export default function MetronomeGameScreen() {
                     </Text>
                     <Text style={[
                       styles.resultValue,
-                      { 
+                      {
                         color: result.accuracy === 'perfect' ? colors.success :
-                               result.accuracy === 'good' ? colors.primary :
-                               result.accuracy === 'fair' ? colors.warning : colors.error
+                          result.accuracy === 'good' ? colors.primary :
+                            result.accuracy === 'fair' ? colors.warning : colors.error
                       }
                     ]}>
                       {result.accuracy.toUpperCase()} ({Math.abs(result.timingError).toFixed(0)}ms)
@@ -620,48 +621,48 @@ export default function MetronomeGameScreen() {
           </>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  settingsSection: { marginBottom: 24 },
+  content: { padding: 12, paddingBottom: 30 },
+  settingsSection: { marginBottom: 20 },
   sectionTitle: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
-  settingCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
+  settingCard: { padding: 8, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
   settingLabel: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  optionsRow: { flexDirection: 'row', gap: 12 },
-  modeButton: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', gap: 8 },
+  optionsRow: { flexDirection: 'column', gap: 8 },
+  modeButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12, borderWidth: 2, alignItems: 'center', minHeight: 60 },
   modeText: { fontSize: 14, fontWeight: '700' },
-  bpmInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
-  bpmInput: { fontSize: 48, fontWeight: '700', textAlign: 'center', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, borderWidth: 2, minWidth: 120 },
-  bpmLabel: { fontSize: 20, fontWeight: '600' },
+  bpmInputContainer: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  bpmInput: { fontSize: 36, fontWeight: '700', textAlign: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, borderWidth: 2, minWidth: 100 },
+  bpmLabel: { fontSize: 16, fontWeight: '600' },
   bpmHint: { fontSize: 12, textAlign: 'center', marginTop: 8 },
-  optionButton: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 2, alignItems: 'center' },
-  optionText: { fontSize: 14, fontWeight: '600' },
-  instructionsCard: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 24 },
+  optionButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 10, borderWidth: 2, alignItems: 'center', minHeight: 44 },
+  optionText: { fontSize: 12, fontWeight: '600' },
+  instructionsCard: { padding: 8, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
   instructionsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  instructionsText: { fontSize: 14, lineHeight: 22 },
-  startButton: { paddingVertical: 18, borderRadius: 14, alignItems: 'center' },
+  instructionsText: { fontSize: 14, lineHeight: 20 },
+  startButton: { paddingVertical: 18, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   startButtonText: { fontSize: 18, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  statBox: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  statsRow: { flexDirection: 'column', gap: 8, marginBottom: 20 },
+  statBox: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', minHeight: 70 },
   statValue: { fontSize: 24, fontWeight: '700' },
-  statLabel: { fontSize: 12, fontWeight: '500', marginTop: 4 },
-  metronomeContainer: { padding: 40, borderRadius: 20, borderWidth: 2, alignItems: 'center', marginBottom: 24 },
+  statLabel: { fontSize: 12, fontWeight: '500', marginTop: 4, textAlign: 'center' },
+  metronomeContainer: { padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', marginBottom: 12 },
   barCounter: { fontSize: 14, fontWeight: '600', marginBottom: 16 },
-  metronomePulse: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-  beatIndicators: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  beatDot: { width: 16, height: 16, borderRadius: 8 },
-  bpmDisplay: { fontSize: 20, fontWeight: '700' },
-  silentContainer: { padding: 60, borderRadius: 20, borderWidth: 2, alignItems: 'center', marginBottom: 24 },
+  metronomePulse: { width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  beatIndicators: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  beatDot: { width: 12, height: 12, borderRadius: 6 },
+  bpmDisplay: { fontSize: 16, fontWeight: '700' },
+  silentContainer: { padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center', marginBottom: 12 },
   silentText: { fontSize: 18, fontWeight: '600' },
-  resultsCard: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 24 },
+  resultsCard: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
   resultsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   resultLabel: { fontSize: 14, fontWeight: '500' },
   resultValue: { fontSize: 14, fontWeight: '700' },
-  stopButton: { paddingVertical: 18, borderRadius: 14, borderWidth: 2, alignItems: 'center' },
+  stopButton: { paddingVertical: 18, borderRadius: 12, borderWidth: 2, alignItems: 'center' },
   stopButtonText: { fontSize: 18, fontWeight: '700' },
 });

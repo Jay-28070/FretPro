@@ -11,6 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // All notes for detection
 const ALL_NOTES = [
@@ -52,9 +53,9 @@ export default function TunerScreen() {
       await requestAudioPermissions();
       await startListening(); // Auto-start
     };
-    
+
     init();
-    
+
     return () => {
       stopListening();
     };
@@ -121,12 +122,12 @@ export default function TunerScreen() {
       const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      
+
       recording.current = newRecording;
       setIsListening(true);
-      
-      // Start pitch detection loop
-      detectPitch();
+
+      // Call pitch detection once to initialize
+      await detectPitch();
     } catch (error) {
       console.error('Failed to start recording:', error);
     }
@@ -148,39 +149,30 @@ export default function TunerScreen() {
     }
   };
 
-  const detectPitch = () => {
-    // Simulated pitch detection for now
-    const simulateDetection = () => {
-      // Simulate detecting a note (for demo purposes)
-      const randomNote = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];
-      const detectedFreq = randomNote.freq + (Math.random() - 0.5) * 10;
-      
-      const closestNote = findClosestNote(detectedFreq);
-      const centsOff = getCentsOff(detectedFreq, closestNote.freq);
-      
-      setDetectedNote(closestNote.name);
-      setFrequency(detectedFreq);
-      setCents(centsOff);
-      
-      // Determine tuning status
-      if (Math.abs(centsOff) < 5) {
-        setTuningStatus('in-tune');
-      } else if (Math.abs(centsOff) < 20) {
-        setTuningStatus('close');
-      } else {
+  const detectPitch = async () => {
+    if (!recording.current) return;
+
+    try {
+      // Get recording status to check if audio is being captured
+      const status = await recording.current.getStatusAsync();
+
+      if (status.isRecording) {
+        // For now, show that we're listening but not detecting random notes
+        // Real pitch detection will be implemented in Phase 2
+        setDetectedNote('--');
+        setFrequency(0);
+        setCents(0);
         setTuningStatus('far');
+
+        // Reset meter to center
+        Animated.spring(meterAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
       }
-
-      // Animate meter
-      Animated.spring(meterAnim, {
-        toValue: centsOff / 50, // Normalize to -1 to 1
-        useNativeDriver: true,
-      }).start();
-
-      setTimeout(simulateDetection, 100);
-    };
-
-    simulateDetection();
+    } catch (error) {
+      console.error('Error in pitch detection:', error);
+    }
   };
 
   const findClosestNote = (freq: number) => {
@@ -211,14 +203,14 @@ export default function TunerScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header with listening indicator */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <IconSymbol name="tuningfork" size={32} color={colors.primary} />
           <Text style={[styles.title, { color: colors.text }]}>Tuner</Text>
         </View>
-        
+
         {isListening && (
           <View style={styles.listeningIndicator}>
             <Animated.View
@@ -341,19 +333,19 @@ export default function TunerScreen() {
       <Text style={[styles.hint, { color: colors.textTertiary }]}>
         Play any note on your guitar
       </Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   header: {
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 32,
+    marginTop: 10,
+    marginBottom: 24,
   },
   titleRow: {
     flexDirection: 'row',
@@ -385,19 +377,19 @@ const styles = StyleSheet.create({
   mainDisplay: {
     flex: 1,
     justifyContent: 'center',
-    gap: 32,
+    gap: 24,
   },
   noteCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     borderWidth: 4,
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
   },
   noteText: {
-    fontSize: 64,
+    fontSize: 56,
     fontWeight: '900',
     letterSpacing: 2,
   },

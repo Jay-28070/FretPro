@@ -33,6 +33,8 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRegister = async () => {
     const trimmedFirstName = firstName.trim();
@@ -169,44 +171,86 @@ export default function RegisterScreen() {
 
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="At least 6 characters"
-              placeholderTextColor={colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              editable={!isLoading}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[
+                  styles.passwordInput,
+                  {
+                    backgroundColor: colors.backgroundSecondary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="At least 6 characters"
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                textContentType="newPassword"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                <View style={styles.eyeIcon}>
+                  {showPassword ? (
+                    <>
+                      <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                      <View style={[styles.eyeSlash, { backgroundColor: colors.text }]} />
+                    </>
+                  ) : (
+                    <>
+                      <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                      <View style={[styles.eyePupil, { backgroundColor: colors.text }]} />
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Re-enter password"
-              placeholderTextColor={colors.textSecondary}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              editable={!isLoading}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[
+                  styles.passwordInput,
+                  {
+                    backgroundColor: colors.backgroundSecondary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Re-enter password"
+                placeholderTextColor={colors.textSecondary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                textContentType="newPassword"
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
+              >
+                <View style={styles.eyeIcon}>
+                  {showConfirmPassword ? (
+                    <>
+                      <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                      <View style={[styles.eyeSlash, { backgroundColor: colors.text }]} />
+                    </>
+                  ) : (
+                    <>
+                      <View style={[styles.eyeShape, { borderColor: colors.text }]} />
+                      <View style={[styles.eyePupil, { backgroundColor: colors.text }]} />
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -234,7 +278,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={[
               styles.googleButton,
-              { 
+              {
                 backgroundColor: colors.backgroundSecondary,
                 borderColor: colors.border,
               },
@@ -312,6 +356,53 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    height: 52,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 16,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 14,
+    padding: 6,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+    borderRadius: 6,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyeIcon: {
+    width: 18,
+    height: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyeShape: {
+    width: 18,
+    height: 12,
+    borderWidth: 1.5,
+    borderRadius: 9,
+  },
+  eyePupil: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  eyeSlash: {
+    position: 'absolute',
+    width: 20,
+    height: 1.5,
+    transform: [{ rotate: '45deg' }],
   },
   button: {
     height: 52,
