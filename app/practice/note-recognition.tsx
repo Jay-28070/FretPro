@@ -9,6 +9,7 @@ import { showToast } from '@/components/ui/toast';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { pitchDetectionService } from '@/services/audio/PitchDetectionService';
 import { ttsService } from '@/services/audio/TTSService';
 import { scoreService } from '@/services/practice/ScoreService';
 import { Stack } from 'expo-router';
@@ -196,18 +197,46 @@ export default function NoteRecognitionScreen() {
     };
   }, [showSettings, currentPosition]);
 
-  const startListening = () => {
-    setIsListening(true);
+  const startListening = async () => {
+    try {
+      // Initialize pitch detection service
+      await pitchDetectionService.initialize();
 
-    // TODO: Phase 2 - Real pitch detection with expo-av
-    // Will continuously monitor microphone input
-    // Detect frequency and compare with currentPosition.frequency
-    // Auto-advance when correct note detected
+      // Add callback for pitch detection results
+      pitchDetectionService.addCallback(handlePitchDetection);
+
+      // Start listening
+      await pitchDetectionService.startListening();
+      setIsListening(true);
+    } catch (error) {
+      console.error('Failed to start listening:', error);
+    }
   };
 
-  const stopListening = () => {
-    setIsListening(false);
-    // TODO: Stop microphone monitoring
+  const stopListening = async () => {
+    try {
+      // Remove callback and stop listening
+      pitchDetectionService.removeCallback(handlePitchDetection);
+      await pitchDetectionService.stopListening();
+      setIsListening(false);
+    } catch (error) {
+      console.error('Failed to stop listening:', error);
+    }
+  };
+
+  const handlePitchDetection = (result: { frequency: number | null; confidence: number }) => {
+    if (!currentPosition || !showSettings === false) return;
+
+    if (result.frequency && result.confidence > 0.6) {
+      // Check if detected frequency matches target (within 10 Hz tolerance)
+      const tolerance = 10; // Hz
+      const isCorrect = Math.abs(result.frequency - currentPosition.frequency) < tolerance;
+
+      if (isCorrect) {
+        handleAnswer(true, result.frequency);
+      }
+      // Don't auto-fail on wrong frequency - let user keep trying
+    }
   };
 
   const generateQuestion = async () => {
