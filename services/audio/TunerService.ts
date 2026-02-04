@@ -65,8 +65,20 @@ class TunerService {
       console.log('[Tuner] Started', targetString ? `for ${targetString}` : '(auto-detect)');
       this.notifyCallbacks();
     } catch (error) {
-      console.error('[Tuner] Failed to start:', error);
-      throw error;
+      console.warn('[Tuner] Audio recording not available, using simulation mode:', error);
+
+      // Continue with simulation mode
+      this.state.isActive = true;
+      this.state.targetString = targetString || null;
+
+      // Add our callback to pitch detection (will use simulation)
+      pitchDetectionService.addCallback(this.handlePitchDetection);
+
+      // Start listening (will fall back to simulation)
+      await pitchDetectionService.startListening();
+
+      console.log('[Tuner] Started in simulation mode');
+      this.notifyCallbacks();
     }
   }
 

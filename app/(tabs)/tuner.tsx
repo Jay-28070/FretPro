@@ -22,7 +22,6 @@ export default function TunerScreen() {
   const [frequency, setFrequency] = useState<number>(0);
   const [cents, setCents] = useState<number>(0);
   const [tuningStatus, setTuningStatus] = useState<'in-tune' | 'close' | 'far'>('far');
-  const [confidence, setConfidence] = useState<number>(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const meterAnim = useRef(new Animated.Value(0)).current;
@@ -94,12 +93,20 @@ export default function TunerScreen() {
   const handleTunerUpdate = (state: any) => {
     setFrequency(state.currentFrequency || 0);
     setCents(state.centsOff);
-    setConfidence(state.confidence);
 
     // Update detected note based on target string or frequency
     if (state.targetString && state.currentFrequency && state.confidence > 0.5) {
+      // Show just the note name, not the full string name
+      const noteMap: Record<string, string> = {
+        'Low E': 'E',
+        'A': 'A',
+        'D': 'D',
+        'G': 'G',
+        'B': 'B',
+        'High E': 'E'
+      };
       const stringInfo = tunerService.getStringInfo(state.targetString);
-      setDetectedNote(stringInfo.name);
+      setDetectedNote(noteMap[stringInfo.name] || stringInfo.name);
     } else if (state.currentFrequency && state.confidence > 0.5) {
       // Auto-detect closest note
       const closestNote = findClosestNote(state.currentFrequency);
@@ -299,7 +306,7 @@ export default function TunerScreen() {
 
       {/* Hint */}
       <Text style={[styles.hint, { color: colors.textTertiary }]}>
-        Play any note on your guitar • Phase 2: Real audio detection
+        Play any note on your guitar • Web: Simulation mode
       </Text>
     </SafeAreaView>
   );
