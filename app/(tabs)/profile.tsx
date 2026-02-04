@@ -13,9 +13,9 @@ import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,49 +44,32 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   // Load user profile from Firestore
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+  const loadProfile = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setProfile({
-            firstName: data.firstName || 'User',
-            lastName: data.lastName || '',
-            username: data.username || user.email?.split('@')[0] || 'user',
-            email: data.email || user.email || '',
-            stats: data.stats || {
-              totalPoints: 0,
-              totalSessions: 0,
-              totalNotesCorrect: 0,
-              averageAccuracy: 0,
-              longestStreak: 0,
-              practiceTime: 0,
-            }
-          });
-        } else {
-          setProfile({
-            firstName: user.displayName?.split(' ')[0] || 'User',
-            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
-            username: user.email?.split('@')[0] || 'user',
-            email: user.email || '',
-            stats: {
-              totalPoints: 0,
-              totalSessions: 0,
-              totalNotesCorrect: 0,
-              averageAccuracy: 0,
-              longestStreak: 0,
-              practiceTime: 0,
-            }
-          });
-        }
-      } catch (error: any) {
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setProfile({
+          firstName: data.firstName || 'User',
+          lastName: data.lastName || '',
+          username: data.username || user.email?.split('@')[0] || 'user',
+          email: data.email || user.email || '',
+          stats: data.stats || {
+            totalPoints: 0,
+            totalSessions: 0,
+            totalNotesCorrect: 0,
+            averageAccuracy: 0,
+            longestStreak: 0,
+            practiceTime: 0,
+          }
+        });
+      } else {
         setProfile({
           firstName: user.displayName?.split(' ')[0] || 'User',
           lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
@@ -101,13 +84,38 @@ export default function ProfileScreen() {
             practiceTime: 0,
           }
         });
-      } finally {
-        setLoading(false);
       }
-    };
-
-    loadProfile();
+    } catch (error: any) {
+      setProfile({
+        firstName: user.displayName?.split(' ')[0] || 'User',
+        lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+        username: user.email?.split('@')[0] || 'user',
+        email: user.email || '',
+        stats: {
+          totalPoints: 0,
+          totalSessions: 0,
+          totalNotesCorrect: 0,
+          averageAccuracy: 0,
+          longestStreak: 0,
+          practiceTime: 0,
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  // Load profile on mount
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // Refresh profile when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
 
   const handleSettingsPress = () => {
     router.push('/settings');
@@ -119,10 +127,6 @@ export default function ProfileScreen() {
 
   const handleHistoryPress = () => {
     Alert.alert('Coming Soon', 'Practice history will be available in Phase 3');
-  };
-
-  const handleAchievementsPress = () => {
-    Alert.alert('Coming Soon', 'Achievements will be available in Phase 3');
   };
 
   if (loading) {
@@ -164,7 +168,7 @@ export default function ProfileScreen() {
           <NavigationCard
             icon="person.2.fill"
             title="Friends"
-            subtitle="Coming soon"
+            subtitle="Search, add, and compete"
             onPress={handleFriendsPress}
             iconColor={colors.primary}
           />
@@ -175,14 +179,6 @@ export default function ProfileScreen() {
             subtitle="View past sessions"
             onPress={handleHistoryPress}
             iconColor={colors.success}
-          />
-
-          <NavigationCard
-            icon="trophy.fill"
-            title="Achievements"
-            subtitle="Unlock milestones"
-            onPress={handleAchievementsPress}
-            iconColor={colors.warning}
           />
         </View>
 

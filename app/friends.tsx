@@ -13,9 +13,9 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { type Difficulty, type GameType, scoreService } from '@/services/practice/ScoreService';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Friend {
@@ -56,7 +56,7 @@ export default function FriendsScreen() {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
   const { user } = useAuth();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
@@ -90,103 +90,110 @@ export default function FriendsScreen() {
   const paginatedFriends = filteredFriends.slice(friendsStartIndex, friendsEndIndex);
 
   // Load friends and friend requests
-  useEffect(() => {
+  const loadFriendsData = useCallback(async () => {
     if (!user) return;
 
-    const loadFriendsData = async () => {
-      try {
-        // Load friends
-        const friendsQuery = query(
-          collection(db, 'friends'),
-          where('status', '==', 'accepted')
-        );
-        const friendsSnapshot = await getDocs(friendsQuery);
-        
-        const friendsList: Friend[] = [];
-        for (const friendDoc of friendsSnapshot.docs) {
-          const data = friendDoc.data();
-          const friendUserId = data.user1 === user.uid ? data.user2 : data.user1;
-          
-          // Get friend's profile
-          const friendProfile = await getDoc(doc(db, 'users', friendUserId));
-          if (friendProfile.exists()) {
-            const profile = friendProfile.data();
-            friendsList.push({
-              id: friendDoc.id,
-              userId: friendUserId,
-              username: profile.username || profile.email?.split('@')[0] || 'User',
-              firstName: profile.firstName || '',
-              lastName: profile.lastName || '',
-              accuracy: profile.stats?.averageAccuracy || 0,
-              isOnline: false, // TODO: Implement online status
-            });
-          }
-        }
-        setFriends(friendsList);
+    try {
+      // Load friends
+      const friendsQuery = query(
+        collection(db, 'friends'),
+        where('status', '==', 'accepted')
+      );
+      const friendsSnapshot = await getDocs(friendsQuery);
 
-        // Load pending friend requests
-        const requestsQuery = query(
-          collection(db, 'friends'),
-          where('user2', '==', user.uid),
-          where('status', '==', 'pending')
-        );
-        const requestsSnapshot = await getDocs(requestsQuery);
-        
-        const requestsList: FriendRequest[] = [];
-        for (const requestDoc of requestsSnapshot.docs) {
-          const data = requestDoc.data();
-          const fromProfile = await getDoc(doc(db, 'users', data.user1));
-          if (fromProfile.exists()) {
-            const profile = fromProfile.data();
-            requestsList.push({
-              id: requestDoc.id,
-              fromUserId: data.user1,
-              fromUsername: profile.username || profile.email?.split('@')[0] || 'User',
-              fromName: `${profile.firstName} ${profile.lastName}`.trim(),
-              createdAt: data.createdAt?.toDate() || new Date(),
-            });
-          }
-        }
-        setFriendRequests(requestsList);
+      const friendsList: Friend[] = [];
+      for (const friendDoc of friendsSnapshot.docs) {
+        const data = friendDoc.data();
+        const friendUserId = data.user1 === user.uid ? data.user2 : data.user1;
 
-        // Load challenges (if any)
-        const challengesQuery = query(
-          collection(db, 'challenges'),
-          where('status', '==', 'completed')
-        );
-        const challengesSnapshot = await getDocs(challengesQuery);
-        
-        const challengesList: Challenge[] = [];
-        for (const challengeDoc of challengesSnapshot.docs) {
-          const data = challengeDoc.data();
-          if (data.challenger === user.uid || data.opponent === user.uid) {
-            const isChallenger = data.challenger === user.uid;
-            const opponentId = isChallenger ? data.opponent : data.challenger;
-            const opponentProfile = await getDoc(doc(db, 'users', opponentId));
-            
-            if (opponentProfile.exists()) {
-              const profile = opponentProfile.data();
-              challengesList.push({
-                id: challengeDoc.id,
-                opponent: profile.username || profile.email?.split('@')[0] || 'User',
-                yourScore: isChallenger ? data.challengerScore : data.opponentScore,
-                theirScore: isChallenger ? data.opponentScore : data.challengerScore,
-                won: isChallenger ? data.challengerScore > data.opponentScore : data.opponentScore > data.challengerScore,
-              });
-            }
-          }
+        // Get friend's profile
+        const friendProfile = await getDoc(doc(db, 'users', friendUserId));
+        if (friendProfile.exists()) {
+          const profile = friendProfile.data();
+          friendsList.push({
+            id: friendDoc.id,
+            userId: friendUserId,
+            username: profile.username || profile.email?.split('@')[0] || 'User',
+            firstName: profile.firstName || '',
+            lastName: profile.lastName || '',
+            accuracy: profile.stats?.averageAccuracy || 0,
+            isOnline: false, // TODO: Implement online status
+          });
         }
-        setChallenges(challengesList);
-
-      } catch (error) {
-        console.error('Error loading friends data:', error);
-      } finally {
-        setLoading(false);
       }
-    };
+      setFriends(friendsList);
 
-    loadFriendsData();
+      // Load pending friend requests
+      const requestsQuery = query(
+        collection(db, 'friends'),
+        where('user2', '==', user.uid),
+        where('status', '==', 'pending')
+      );
+      const requestsSnapshot = await getDocs(requestsQuery);
+
+      const requestsList: FriendRequest[] = [];
+      for (const requestDoc of requestsSnapshot.docs) {
+        const data = requestDoc.data();
+        const fromProfile = await getDoc(doc(db, 'users', data.user1));
+        if (fromProfile.exists()) {
+          const profile = fromProfile.data();
+          requestsList.push({
+            id: requestDoc.id,
+            fromUserId: data.user1,
+            fromUsername: profile.username || profile.email?.split('@')[0] || 'User',
+            fromName: `${profile.firstName} ${profile.lastName}`.trim(),
+            createdAt: data.createdAt?.toDate() || new Date(),
+          });
+        }
+      }
+      setFriendRequests(requestsList);
+
+      // Load challenges (if any)
+      const challengesQuery = query(
+        collection(db, 'challenges'),
+        where('status', '==', 'completed')
+      );
+      const challengesSnapshot = await getDocs(challengesQuery);
+
+      const challengesList: Challenge[] = [];
+      for (const challengeDoc of challengesSnapshot.docs) {
+        const data = challengeDoc.data();
+        if (data.challenger === user.uid || data.opponent === user.uid) {
+          const isChallenger = data.challenger === user.uid;
+          const opponentId = isChallenger ? data.opponent : data.challenger;
+          const opponentProfile = await getDoc(doc(db, 'users', opponentId));
+
+          if (opponentProfile.exists()) {
+            const profile = opponentProfile.data();
+            challengesList.push({
+              id: challengeDoc.id,
+              opponent: profile.username || profile.email?.split('@')[0] || 'User',
+              yourScore: isChallenger ? data.challengerScore : data.opponentScore,
+              theirScore: isChallenger ? data.opponentScore : data.challengerScore,
+              won: isChallenger ? data.challengerScore > data.opponentScore : data.opponentScore > data.challengerScore,
+            });
+          }
+        }
+      }
+      setChallenges(challengesList);
+
+    } catch (error) {
+      console.error('Error loading friends data:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadFriendsData();
+  }, [loadFriendsData]);
+
+  // Refresh friends data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadFriendsData();
+    }, [loadFriendsData])
+  );
 
   // Load leaderboard when game/difficulty changes
   useEffect(() => {
@@ -200,12 +207,12 @@ export default function FriendsScreen() {
 
     try {
       const friendScores = await scoreService.getFriendLeaderboard(user.uid, selectedGame, selectedDifficulty);
-      
+
       // Add current user's score
       const userScore = await scoreService.getHighScore(user.uid, selectedGame, selectedDifficulty);
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
-      
+
       const entries: LeaderboardEntry[] = friendScores.map(score => ({
         userId: score.userId,
         userName: score.userName,
@@ -227,7 +234,7 @@ export default function FriendsScreen() {
 
       // Sort by score descending
       entries.sort((a, b) => b.score - a.score);
-      
+
       setLeaderboard(entries);
     } catch (error) {
       console.error('Error loading leaderboard:', error);
@@ -251,17 +258,17 @@ export default function FriendsScreen() {
             const username = data.username || data.email?.split('@')[0] || '';
             const fullName = `${data.firstName} ${data.lastName}`.toLowerCase();
             const searchLower = searchQuery.toLowerCase();
-            
-            return doc.id !== user.uid && 
-                   (username.toLowerCase().includes(searchLower) ||
-                    fullName.includes(searchLower));
+
+            return doc.id !== user.uid &&
+              (username.toLowerCase().includes(searchLower) ||
+                fullName.includes(searchLower));
           })
           .map(doc => ({
             id: doc.id,
             ...doc.data(),
             username: doc.data().username || doc.data().email?.split('@')[0] || 'User',
           }));
-        
+
         setSearchResults(results);
       } catch (error) {
         console.error('Error searching users:', error);
@@ -280,7 +287,7 @@ export default function FriendsScreen() {
     try {
       // Create friendship document with sorted IDs
       const friendshipId = [user.uid, toUserId].sort().join('_');
-      
+
       await setDoc(doc(db, 'friends', friendshipId), {
         user1: user.uid < toUserId ? user.uid : toUserId,
         user2: user.uid < toUserId ? toUserId : user.uid,
@@ -312,7 +319,7 @@ export default function FriendsScreen() {
 
   return (
     <>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           title: 'Friends',
           headerShown: true,
@@ -321,14 +328,14 @@ export default function FriendsScreen() {
           headerShadowVisible: false,
         }}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { 
+        <View style={[styles.searchContainer, {
           backgroundColor: colors.backgroundSecondary,
           borderColor: colors.border,
         }]}>
@@ -477,7 +484,7 @@ export default function FriendsScreen() {
                   isOnline={friend.isOnline}
                 />
               ))}
-              
+
               {/* Friends Pagination */}
               {totalFriendsPages > 1 && (
                 <View style={styles.paginationContainer}>
@@ -492,10 +499,10 @@ export default function FriendsScreen() {
                     onPress={() => setFriendsPage(prev => Math.max(1, prev - 1))}
                     disabled={friendsPage === 1}
                   >
-                    <IconSymbol 
-                      name="chevron.left.forwardslash.chevron.right" 
-                      size={16} 
-                      color={friendsPage === 1 ? colors.textTertiary : colors.background} 
+                    <IconSymbol
+                      name="chevron.left.forwardslash.chevron.right"
+                      size={16}
+                      color={friendsPage === 1 ? colors.textTertiary : colors.background}
                     />
                   </TouchableOpacity>
 
@@ -516,10 +523,10 @@ export default function FriendsScreen() {
                     onPress={() => setFriendsPage(prev => Math.min(totalFriendsPages, prev + 1))}
                     disabled={friendsPage === totalFriendsPages}
                   >
-                    <IconSymbol 
-                      name="chevron.right" 
-                      size={16} 
-                      color={friendsPage === totalFriendsPages ? colors.textTertiary : colors.background} 
+                    <IconSymbol
+                      name="chevron.right"
+                      size={16}
+                      color={friendsPage === totalFriendsPages ? colors.textTertiary : colors.background}
                     />
                   </TouchableOpacity>
                 </View>
@@ -544,9 +551,9 @@ export default function FriendsScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Challenges
             </Text>
-            
-            <ScrollView 
-              horizontal 
+
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.challengesScroll}
             >
@@ -676,7 +683,7 @@ export default function FriendsScreen() {
               }]}>
                 {paginatedLeaderboard.map((entry, index) => {
                   const globalRank = startIndex + index + 1;
-                  
+
                   return (
                     <View
                       key={entry.userId}
@@ -694,12 +701,12 @@ export default function FriendsScreen() {
                           styles.rankBadge,
                           {
                             backgroundColor: globalRank === 1 ? '#FFD700' :
-                                           globalRank === 2 ? '#C0C0C0' :
-                                           globalRank === 3 ? '#CD7F32' : colors.border,
+                              globalRank === 2 ? '#C0C0C0' :
+                                globalRank === 3 ? '#CD7F32' : colors.border,
                           },
                         ]}>
                           <Text style={[
-                            styles.rankText, 
+                            styles.rankText,
                             { color: globalRank <= 3 ? '#FFFFFF' : colors.text }
                           ]}>
                             {globalRank}
@@ -744,10 +751,10 @@ export default function FriendsScreen() {
                     onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
                   >
-                    <IconSymbol 
-                      name="chevron.left.forwardslash.chevron.right" 
-                      size={16} 
-                      color={currentPage === 1 ? colors.textTertiary : colors.background} 
+                    <IconSymbol
+                      name="chevron.left.forwardslash.chevron.right"
+                      size={16}
+                      color={currentPage === 1 ? colors.textTertiary : colors.background}
                     />
                   </TouchableOpacity>
 
@@ -768,10 +775,10 @@ export default function FriendsScreen() {
                     onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    <IconSymbol 
-                      name="chevron.right" 
-                      size={16} 
-                      color={currentPage === totalPages ? colors.textTertiary : colors.background} 
+                    <IconSymbol
+                      name="chevron.right"
+                      size={16}
+                      color={currentPage === totalPages ? colors.textTertiary : colors.background}
                     />
                   </TouchableOpacity>
                 </View>
