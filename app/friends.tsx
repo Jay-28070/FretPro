@@ -558,6 +558,7 @@ export default function FriendsScreen() {
               {paginatedFriends.map(friend => (
                 <FriendCard
                   key={friend.id}
+                  userId={friend.userId}
                   username={friend.username}
                   fullName={`${friend.firstName} ${friend.lastName}`.trim()}
                   accuracy={friend.accuracy}

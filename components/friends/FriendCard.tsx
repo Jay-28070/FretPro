@@ -7,25 +7,28 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRouter } from 'expo-router';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface FriendCardProps {
+  userId: string;
   username: string;
   fullName?: string;
   accuracy: number;
   isOnline: boolean;
 }
 
-export function FriendCard({ username, fullName, accuracy, isOnline }: FriendCardProps) {
+export function FriendCard({ userId, username, fullName, accuracy, isOnline }: FriendCardProps) {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
+  const router = useRouter();
 
   const handleChallenge = () => {
     Alert.alert('Coming Soon', 'Challenges will be available in Phase 3');
   };
 
   const handleViewProfile = () => {
-    Alert.alert('Coming Soon', 'Friend profiles will be available in Phase 3');
+    router.push(`/friend-profile?friendId=${userId}`);
   };
 
   return (
