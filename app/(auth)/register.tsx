@@ -6,10 +6,12 @@
  */
 
 import { showToast } from '@/components/ui/toast';
+import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -30,20 +32,74 @@ export default function RegisterScreen() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const handleUsernameChange = (text: string) => {
+    const lowercaseText = text.toLowerCase();
+    setUsername(lowercaseText);
+    
+    // Clear error when user starts typing
+    if (usernameError) {
+      setUsernameError('');
+    }
+  };
+
+  const validateUsername = async (trimmedUsername: string): Promise<boolean> => {
+    if (!trimmedUsername) {
+      return true; // Username is optional
+    }
+
+    if (trimmedUsername.length < 3) {
+      setUsernameError('Username must be at least 3 characters');
+      return false;
+    }
+
+    if (trimmedUsername.length > 20) {
+      setUsernameError('Username must be 20 characters or less');
+      return false;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(trimmedUsername)) {
+      setUsernameError('Username can only contain lowercase letters, numbers, and underscores');
+      return false;
+    }
+
+    // Check if username is taken
+    const usersSnapshot = await getDocs(
+      query(collection(db, 'users'), where('username', '==', trimmedUsername))
+    );
+
+    if (!usersSnapshot.empty) {
+      setUsernameError('Username already taken');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleRegister = async () => {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
+    const trimmedUsername = username.trim().toLowerCase();
     const trimmedEmail = email.trim();
 
     if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !password.trim()) {
-      showToast('Please fill in all fields', 'error');
+      showToast('Please fill in all required fields', 'error');
       return;
+    }
+
+    // Validate username if provided
+    if (trimmedUsername) {
+      const isValid = await validateUsername(trimmedUsername);
+      if (!isValid) {
+        return; // Error message already set by validateUsername
+      }
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,7 +119,7 @@ export default function RegisterScreen() {
     }
 
     try {
-      await signUp(trimmedEmail, password, trimmedFirstName, trimmedLastName);
+      await signUp(trimmedEmail, password, trimmedFirstName, trimmedLastName, trimmedUsername || undefined);
       showToast('Account created successfully!', 'success');
     } catch (error: any) {
       showToast(error.message || 'Could not create account', 'error');
@@ -144,6 +200,33 @@ export default function RegisterScreen() {
                 editable={!isLoading}
               />
             </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Username (optional)</Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.backgroundSecondary,
+                  color: colors.text,
+                  borderColor: usernameError ? colors.error : colors.border,
+                },
+              ]}
+              placeholder="johndoe123"
+              placeholderTextColor={colors.textSecondary}
+              value={username}
+              onChangeText={handleUsernameChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="username"
+              editable={!isLoading}
+            />
+            {usernameError ? (
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {usernameError}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.inputContainer}>
@@ -349,6 +432,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 13,
+    marginTop: 4,
   },
   input: {
     height: 52,
