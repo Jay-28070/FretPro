@@ -1,17 +1,44 @@
 /**
  * Sound Generator Service
- * Generates metronome clicks and musical notes using Web Audio API
+ * Generates metronome clicks and musical notes
+ * - Web: Uses Web Audio API
+ * - Mobile: Uses expo-av with Audio.Sound
  */
 
+import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
 class SoundGenerator {
   private audioContext: AudioContext | null = null;
+  private clickSounds: { accent: Audio.Sound | null; regular: Audio.Sound | null } = {
+    accent: null,
+    regular: null,
+  };
 
   constructor() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       // @ts-ignore - Web Audio API
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } else {
+      // Initialize mobile audio
+      this.initializeMobileAudio();
+    }
+  }
+
+  /**
+   * Initialize mobile audio with expo-av
+   */
+  private async initializeMobileAudio(): Promise<void> {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: false,
+      });
+    } catch (error) {
+      console.error('Failed to initialize mobile audio:', error);
     }
   }
 
@@ -23,9 +50,56 @@ class SoundGenerator {
     if (Platform.OS === 'web' && this.audioContext) {
       this.playWebClick(isAccent);
     } else {
-      // For native, we'll use a simple beep for now
-      // Phase 2: Add actual audio files
-      console.log(isAccent ? 'CLICK!' : 'click');
+      await this.playMobileClick(isAccent);
+    }
+  }
+
+  /**
+   * Play metronome click on mobile using expo-av
+   * Uses local audio files for better performance
+   */
+  private async playMobileClick(isAccent: boolean): Promise<void> {
+    try {
+      // Use local audio files (WAV format in assets/sounds/)
+      const soundFile = isAccent 
+        ? require('@/assets/sounds/accented_click.wav')
+        : require('@/assets/sounds/click.wav');
+      
+      const { sound } = await Audio.Sound.createAsync(
+        soundFile,
+        { 
+          shouldPlay: true, 
+          volume: isAccent ? 0.8 : 0.6,
+        }
+      );
+
+      // Auto-unload after playing
+      setTimeout(() => {
+        sound.unloadAsync().catch(() => {});
+      }, 200);
+    } catch (error) {
+      // Fallback to online sounds if local files not found
+      console.warn('Local sound files not found, using fallback:', error);
+      try {
+        const soundUrl = isAccent 
+          ? 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg'
+          : 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg';
+        
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: soundUrl },
+          { 
+            shouldPlay: true, 
+            volume: isAccent ? 0.7 : 0.4,
+            rate: 2.0,
+          }
+        );
+
+        setTimeout(() => {
+          sound.unloadAsync().catch(() => {});
+        }, 200);
+      } catch (fallbackError) {
+        console.log('Metronome click:', isAccent ? 'ACCENT' : 'click');
+      }
     }
   }
 
@@ -39,8 +113,28 @@ class SoundGenerator {
     if (Platform.OS === 'web' && this.audioContext) {
       this.playWebNote(note, octave, duration);
     } else {
-      // For native, we'll use a simple beep for now
-      // Phase 2: Add actual audio files
+      await this.playMobileNote(note, octave, duration);
+    }
+  }
+
+  /**
+   * Play musical note on mobile
+   */
+  private async playMobileNote(note: string, octave: number, duration: number): Promise<void> {
+    try {
+      // Use online sound for notes (temporary solution)
+      // In production, use local audio files for each note
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
+        { shouldPlay: true, volume: 0.5 }
+      );
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
       console.log(`Playing ${note}${octave}`);
     }
   }

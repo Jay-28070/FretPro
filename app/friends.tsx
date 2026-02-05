@@ -291,7 +291,8 @@ export default function FriendsScreen() {
         const searchLower = searchQuery.toLowerCase().trim();
         
         const results = usersSnapshot.docs
-          .filter(doc => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((doc: any) => {
             if (doc.id === user.uid) return false; // Don't show current user
             
             const data = doc.data();
@@ -308,12 +309,14 @@ export default function FriendsScreen() {
                    username.includes(searchLower) ||
                    email.includes(searchLower);
           })
-          .map(doc => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((doc: any) => ({
             id: doc.id,
             ...doc.data(),
             username: doc.data().username || doc.data().email?.split('@')[0] || 'User',
           }))
-          .sort((a, b) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .sort((a: any, b: any) => {
             // Sort by relevance: exact name matches first, then username matches
             const aFullName = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
             const bFullName = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();

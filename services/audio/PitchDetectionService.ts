@@ -402,16 +402,16 @@ class PitchDetectionService {
       if (!this.isListening || !this.analyser || !this.dataArray) return;
 
       // Get time domain data
-      this.analyser.getFloatTimeDomainData(this.dataArray);
+      this.analyser.getFloatTimeDomainData(this.dataArray as Float32Array<ArrayBuffer>);
 
       // Calculate signal strength first
-      const rms = this.calculateRMS(this.dataArray);
+      const rms = this.calculateRMS(this.dataArray as Float32Array);
       
       // Only try to detect pitch if signal is strong enough
       let frequency = null;
       if (rms > 0.005) { // Lowered threshold for more responsiveness
         // Detect pitch using autocorrelation
-        frequency = this.detectPitchAutocorrelation(this.dataArray, this.audioContext!.sampleRate);
+        frequency = this.detectPitchAutocorrelation(this.dataArray as Float32Array, this.audioContext!.sampleRate);
       }
 
       // Scale confidence based on RMS
@@ -431,7 +431,7 @@ class PitchDetectionService {
   /**
    * Autocorrelation pitch detection algorithm
    */
-  private detectPitchAutocorrelation(buffer: Float32Array<ArrayBufferLike>, sampleRate: number): number | null {
+  private detectPitchAutocorrelation(buffer: Float32Array, sampleRate: number): number | null {
     // First check if there's enough signal
     const rms = this.calculateRMS(buffer);
     if (rms < 0.005) {
@@ -490,7 +490,7 @@ class PitchDetectionService {
   /**
    * Calculate RMS (Root Mean Square) for signal strength
    */
-  private calculateRMS(buffer: Float32Array<ArrayBufferLike>): number {
+  private calculateRMS(buffer: Float32Array): number {
     let sum = 0;
     for (let i = 0; i < buffer.length; i++) {
       sum += buffer[i] * buffer[i];
