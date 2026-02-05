@@ -18,8 +18,7 @@ import {
     GoogleAuthProvider,
     onAuthStateChanged,
     signInWithEmailAndPassword,
-    signInWithPopup,
-    User
+    signInWithPopup
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
@@ -29,7 +28,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, username?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -81,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, username?: string) => {
     setIsLoading(true);
     try {
       // Create auth user
@@ -92,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firstName,
         lastName,
         email,
-        username: email.split('@')[0], // Default username from email
+        username: username || email.split('@')[0], // Use provided username or default from email
         createdAt: new Date(),
         updatedAt: new Date(),
         stats: {

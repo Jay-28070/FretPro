@@ -14,7 +14,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +42,8 @@ export default function ProfileScreen() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [friendCount, setFriendCount] = useState(0);
 
   // Load user profile from Firestore
   const loadProfile = useCallback(async () => {
@@ -85,6 +87,41 @@ export default function ProfileScreen() {
           }
         });
       }
+
+      // Load pending friend requests count
+      const allRequestsSnapshot = await getDocs(
+        query(collection(db, 'friends'), where('status', '==', 'pending'))
+      );
+
+      let pendingCount = 0;
+      allRequestsSnapshot.docs.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        // Count requests where current user is the RECEIVER (not the sender)
+        const isPartOfFriendship = data.user1 === user.uid || data.user2 === user.uid;
+        const isReceiver = data.requestedBy !== user.uid;
+        
+        if (isPartOfFriendship && isReceiver) {
+          pendingCount++;
+        }
+      });
+
+      setPendingRequestsCount(pendingCount);
+
+      // Load friend count (accepted friendships)
+      const friendsSnapshot = await getDocs(
+        query(collection(db, 'friends'), where('status', '==', 'accepted'))
+      );
+
+      let acceptedFriendsCount = 0;
+      friendsSnapshot.docs.forEach(docSnapshot => {
+        const data = docSnapshot.data();
+        // Count friendships where current user is part of
+        if (data.user1 === user.uid || data.user2 === user.uid) {
+          acceptedFriendsCount++;
+        }
+      });
+
+      setFriendCount(acceptedFriendsCount);
     } catch (error: any) {
       setProfile({
         firstName: user.displayName?.split(' ')[0] || 'User',
@@ -152,7 +189,8 @@ export default function ProfileScreen() {
         {/* Header */}
         <ProfileHeader
           username={`${profile.firstName} ${profile.lastName}`.trim() || profile.username}
-          friendCount={0}
+          friendCount={friendCount}
+          pendingRequestsCount={pendingRequestsCount}
         />
 
         {/* Navigation Cards */}

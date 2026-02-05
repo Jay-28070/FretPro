@@ -123,8 +123,9 @@ class ScoreService {
       );
       const querySnapshot = await getDocs(q);
 
-      return querySnapshot.docs.map((doc) => {
-        const data = doc.data();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return querySnapshot.docs.map((docSnapshot: any) => {
+        const data = docSnapshot.data();
         return {
           gameType: data.gameType,
           difficulty: data.difficulty,
@@ -158,9 +159,10 @@ class ScoreService {
       );
       const querySnapshot = await getDocs(q);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scores = await Promise.all(
-        querySnapshot.docs.map(async (scoreDoc) => {
-          const data = scoreDoc.data();
+        querySnapshot.docs.map(async (scoreDocSnapshot: any) => {
+          const data = scoreDocSnapshot.data();
           
           // Get user name
           const userDoc = await getDoc(doc(db, 'users', data.userId));
@@ -203,8 +205,9 @@ class ScoreService {
 
       // Extract friend user IDs
       const friendIds: string[] = [];
-      friendsSnapshot.docs.forEach(friendDoc => {
-        const data = friendDoc.data();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      friendsSnapshot.docs.forEach((friendDocSnapshot: any) => {
+        const data = friendDocSnapshot.data();
         // Check if current user is part of this friendship
         if (data.user1 === userId) {
           friendIds.push(data.user2);

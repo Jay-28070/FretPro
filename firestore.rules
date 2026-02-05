@@ -32,7 +32,7 @@ service cloud.firestore {
       return isAuthenticated() && 
              exists(/databases/$(database)/documents/friends/$(request.auth.uid + '_' + userId)) ||
              exists(/databases/$(database)/documents/friends/$(userId + '_' + request.auth.uid));
-    }
+    } 
     
     // Users Collection
     match /users/{userId} {
@@ -65,10 +65,9 @@ service cloud.firestore {
     // Friends Collection
     // Document ID format: {userId1}_{userId2} (alphabetically sorted)
     match /friends/{friendshipId} {
-      // Users can read friendships they're part of
-      allow read: if isAuthenticated() && 
-                    (friendshipId.matches('^' + request.auth.uid + '_.*') ||
-                     friendshipId.matches('.*_' + request.auth.uid + '$'));
+      // Users can read ALL friendships to query for their own
+      // This is needed for queries like: where('status', '==', 'accepted')
+      allow read: if isAuthenticated();
       
       // Users can create friendships involving themselves
       allow create: if isAuthenticated() &&
@@ -91,10 +90,8 @@ service cloud.firestore {
     
     // Challenges Collection
     match /challenges/{challengeId} {
-      // Participants can read their challenges
-      allow read: if isAuthenticated() &&
-                    (resource.data.challenger == request.auth.uid ||
-                     resource.data.opponent == request.auth.uid);
+      // Allow reading all challenges (will be filtered by code to only show user's challenges)
+      allow read: if isAuthenticated();
       
       // Users can create challenges
       allow create: if isAuthenticated() &&

@@ -1,352 +1,342 @@
-# FretPro
+# FretPro 🎸
 
-**Professional guitar practice companion built with Expo and React Native.**
-
-Modern, minimal design for focused practice sessions with voice-guided commands.
-
----
+A comprehensive guitar learning app built with React Native and Expo. Practice fretboard recognition, ear training, rhythm, and more with real-time audio feedback.
 
 ## Features
 
-### Phase 1 (Current) 
-- **Voice-Guided Practice:** TTS speaks commands like "Play G on the B string, fret 3"
-- **Smart Command Generation:** Intelligent note/string/fret selection with anti-repetition
-- **Session Tracking:** Real-time accuracy and progress statistics
-- **Theme Support:** Working light/dark mode toggle
-- **Auth-Aware Routing:** Prepared for Phase 3 authentication
+### 🎯 Practice Modes
+- **Ear Training**: Listen to notes and identify them on the fretboard
+- **Note Recognition**: Find specific notes across the fretboard
+- **Rhythm Master**: Metronome with hold-out game mode for internal tempo training
+- **Tuner**: Real-time chromatic tuner with visual feedback (web only)
 
-### Phase 2 (Scaffolded) 
-- **Real-Time Pitch Detection:** YIN algorithm for accurate note recognition
-- **Guitar Tuner:** Visual tuning feedback with string detection
-- **Metronome:** Precise timing engine with BPM control
+### 👥 Social Features
+- **Friends System**: Search, add, and manage friends
+- **Leaderboards**: Compete with friends on practice games
+- **Profile Stats**: Track your progress and achievements
+- **Friend Profiles**: View friends' stats and practice history
 
-### Phase 3 (Planned) 
-- **User Authentication:** Real login/register flow
-- **Progress Tracking:** Historical performance analytics
-- **Custom Exercises:** Personalized practice routines
+### 🎨 Customization
+- **Dark/Light Themes**: Beautiful color schemes for any environment
+- **Audio Settings**: Adjust metronome and game sounds
+- **User Profiles**: Personalized avatars and usernames
 
----
+## Tech Stack
 
-## Quick Start
+- **Framework**: React Native with Expo
+- **Navigation**: Expo Router (file-based routing)
+- **Backend**: Firebase (Authentication, Firestore, Storage)
+- **Audio**: Web Audio API (web), expo-av (mobile)
+- **Language**: TypeScript
+- **State Management**: React Context API
 
-### Prerequisites
-- Node.js 18+
-- Expo CLI
-- iOS Simulator or Android Emulator (or physical device with Expo Go)
+## Prerequisites
 
-### Installation
+Before you begin, ensure you have the following installed:
+
+- **Node.js** (v18 or higher) - [Download](https://nodejs.org/)
+- **npm** or **yarn** - Comes with Node.js
+- **Expo CLI** - Will be installed with dependencies
+- **Git** - [Download](https://git-scm.com/)
+
+### For Mobile Development
+- **Expo Go** app on your phone ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
+- OR **Android Studio** / **Xcode** for emulators
+
+## Installation
+
+### 1. Clone the Repository
 
 ```bash
-# Install dependencies
-npm install
-
-# Install required package (if PowerShell execution policy blocks npm)
-# You'll need to install this manually:
-npm install @react-native-async-storage/async-storage
-
-# Start development server
-npx expo start
+git clone <your-repo-url>
+cd FretPro
 ```
 
-### Run the App
+### 2. Install Dependencies
 
-- **iOS Simulator:** Press `i`
-- **Android Emulator:** Press `a`
-- **Physical Device:** Scan QR code with Expo Go app
-- **Web Browser:** Press `w` (limited audio support)
+```bash
+npm install
+# or
+yarn install
+```
 
----
+### 3. Set Up Firebase
+
+The project is already configured with Firebase, but if you want to use your own Firebase project:
+
+1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable **Authentication** (Email/Password)
+3. Create a **Firestore Database** (start in production mode)
+4. Copy your Firebase config
+5. Update `.env` file with your credentials:
+
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+### 4. Deploy Firestore Security Rules
+
+```bash
+# Install Firebase CLI if you haven't
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+
+# Initialize Firebase in your project (if not already done)
+firebase init firestore
+
+# Deploy security rules
+firebase deploy --only firestore:rules
+```
+
+Or use the provided batch script (Windows):
+```bash
+deploy-rules.bat
+```
+
+### 5. Add Audio Files
+
+The app requires audio files for the best experience:
+
+#### Metronome Sounds (Required)
+The metronome requires two WAV files in `assets/sounds/`:
+- `click.wav` - Regular metronome click
+- `accented_click.wav` - Accented beat (downbeat)
+
+#### Musical Note Files (Optional but Recommended)
+For the Ear Training game, add note files in `assets/sounds/notes/`:
+- 36 WAV files covering 3 octaves (C3-B3, C4-B4, C5-B5)
+- Named like: `C4.wav`, `Cs4.wav` (s = sharp), `D4.wav`, etc.
+- See `assets/sounds/notes/README.md` for detailed instructions
+
+**Quick options:**
+- **Generate with Audacity**: Free tone generator (see notes README)
+- **Download samples**: Freesound.org, Philharmonia Orchestra
+- **Record your own**: Guitar, piano, or synthesizer
+
+**Note**: The app works without note files (uses synthesized sounds on web), but local files provide much better quality on mobile.
+
+## Running the App
+
+### Development Server
+
+```bash
+npm start
+# or
+yarn start
+```
+
+This will start the Expo development server and show a QR code.
+
+### Platform-Specific Commands
+
+```bash
+# Run on web browser
+npm run web
+
+# Run on Android (emulator or device)
+npm run android
+
+# Run on iOS (Mac only, emulator or device)
+npm run ios
+
+# Clear cache and restart
+npm run clean
+```
+
+### Using Expo Go (Recommended for Quick Testing)
+
+1. Install Expo Go on your phone
+2. Run `npm start`
+3. Scan the QR code with:
+   - **iOS**: Camera app
+   - **Android**: Expo Go app
 
 ## Project Structure
 
 ```
 FretPro/
-├── app/                          # Expo Router navigation
-│   ├── (auth)/                   # Auth screens (login)
-│   │   ├── _layout.tsx
-│   │   └── login.tsx
-│   ├── (tabs)/                   # Main app tabs
-│   │   ├── _layout.tsx
-│   │   ├── practice.tsx          #  Main practice interface
-│   │   ├── tuner.tsx             #  Tuner screen
-│   │   └── profile.tsx           #  Profile & settings
-│   └── _layout.tsx               # Root layout with providers
-├── services/                     # Business logic services
-│   ├── audio/                    # Audio processing
-│   │   ├── TTSService.ts         #  Text-to-speech
-│   │   ├── TunerService.ts       #  Tuner (scaffolded)
-│   │   ├── PitchDetectionService.ts  #  Pitch detection (scaffolded)
-│   │   └── MetronomeService.ts   #  Metronome (scaffolded)
-│   └── practice/                 # Practice logic
-│       └── CommandGenerator.ts   #  Command generation
+├── app/                          # Expo Router screens
+│   ├── (auth)/                   # Authentication screens
+│   │   ├── login.tsx
+│   │   └── register.tsx
+│   ├── (tabs)/                   # Main tab navigation
+│   │   ├── index.tsx             # Home/Practice
+│   │   ├── profile.tsx           # User profile
+│   │   └── tuner.tsx             # Chromatic tuner
+│   ├── practice/                 # Practice game screens
+│   │   ├── ear-training.tsx
+│   │   ├── note-recognition.tsx
+│   │   └── metronome.tsx
+│   ├── friends.tsx               # Friends management
+│   ├── friend-profile.tsx        # View friend stats
+│   ├── settings.tsx              # App settings
+│   └── _layout.tsx               # Root layout
+├── components/                   # Reusable components
+│   ├── friends/                  # Friend-related components
+│   ├── profile/                  # Profile components
+│   └── ui/                       # UI primitives
+├── services/                     # Business logic
+│   ├── audio/                    # Audio services
+│   │   ├── PitchDetectionService.ts
+│   │   ├── TunerService.ts
+│   │   ├── SoundGenerator.ts
+│   │   └── TTSService.ts
+│   └── practice/                 # Practice game logic
+│       └── ScoreService.ts
 ├── contexts/                     # React contexts
-│   ├── ThemeContext.tsx          #  Theme management
-│   └── AuthContext.tsx           #  Auth state (dummy)
-├── components/                   # Reusable UI components
-├── constants/                    # Theme and constants
-│   └── theme.ts                  #  Color system
-└── hooks/                        # Custom React hooks
+│   ├── AuthContext.tsx           # Authentication state
+│   └── ThemeContext.tsx          # Theme management
+├── config/                       # Configuration
+│   └── firebase.ts               # Firebase setup
+├── constants/                    # App constants
+│   └── theme.ts                  # Color schemes
+├── assets/                       # Static assets
+│   ├── images/
+│   └── sounds/                   # Audio files
+├── docs/                         # Documentation
+├── firestore.rules               # Firestore security rules
+├── .env                          # Environment variables
+└── package.json
 ```
 
----
+## Key Features Explained
 
-## Architecture
+### Tuner (Web Only)
+The chromatic tuner uses Web Audio API for real-time pitch detection. It:
+- Auto-detects notes and octaves
+- Shows cents off from perfect pitch
+- Displays visual tuning meter
+- Supports low frequencies (down to 40Hz for bass)
 
-### Design Principles
+**Note**: Mobile tuner requires native implementation (see `docs/NATIVE_AUDIO_GUIDE.md`)
 
-1. **Expo-First:** Built on Expo's existing structure, not against it
-2. **Service Pattern:** Business logic in singleton services
-3. **Context for State:** Theme and auth managed via React Context
-4. **Separation of Concerns:** UI, business logic, and data clearly separated
-5. **Industry Standard:** No experimental patterns or over-engineering
+### Metronome
+Two modes available:
+1. **Normal Metronome**: Simple click track with visual indicators
+2. **Hold-Out Game**: Tests your internal tempo by going silent
 
-### Key Patterns
+Works on both web and mobile with local audio files.
 
-**Services (Singleton)**
-```typescript
-// services/audio/TTSService.ts
-export const ttsService = new TTSService();
+### Practice Games
+- **Ear Training**: Develops relative pitch recognition
+- **Note Recognition**: Improves fretboard knowledge
+- **Scoring System**: Tracks accuracy, streaks, and progress
 
-// Usage in components
-import { ttsService } from '@/services/audio/TTSService';
-await ttsService.speak('Hello');
-```
+### Friends System
+- Search by name or username
+- Send/accept friend requests
+- View friend profiles and stats
+- Compete on leaderboards
 
-**Contexts (Global State)**
-```typescript
-// contexts/ThemeContext.tsx
-export function ThemeProvider({ children }) { ... }
-export function useTheme() { ... }
+## Firebase Collections
 
-// Usage in components
-const { colorScheme, setThemePreference } = useTheme();
-```
+The app uses the following Firestore collections:
 
-**Auth-Aware Routing**
-```typescript
-// app/_layout.tsx
-// Automatically redirects based on auth state
-if (!isAuthenticated && !inAuthGroup) {
-  router.replace('/(auth)/login');
-}
-```
+- `users` - User profiles and stats
+- `friends` - Friend relationships
+- `challenges` - Practice challenges (future feature)
+- `sessions` - Practice session data
+- `gameScores` - Individual game scores
+- `highScores` - Best scores per game/difficulty
 
----
-
-## Theme System
-
-### Colors
-
-Professional, minimal design optimized for both light and dark modes:
-
-- **Primary:** `#00D9FF` (Cyan) - Main accent
-- **Secondary:** `#FF6B9D` (Pink) - Secondary accent
-- **Success:** `#00FF88` (Green) - Success states
-- **Warning:** `#FFB800` (Amber) - Warnings
-- **Error:** `#FF4757` (Red) - Errors
-
-### Usage
-
-```typescript
-import { Colors } from '@/constants/theme';
-import { useTheme } from '@/contexts/ThemeContext';
-
-const { colorScheme } = useTheme();
-const colors = Colors[colorScheme];
-
-<View style={{ backgroundColor: colors.background }}>
-  <Text style={{ color: colors.text }}>Hello</Text>
-</View>
-```
-
-### Theme Toggle
-
-Users can toggle theme in Profile tab:
-- Light
-- Dark
-- System (follows device setting)
-
----
-
-## Audio Services
-
-### TTS Service (Implemented)
-
-```typescript
-import { ttsService } from '@/services/audio/TTSService';
-
-// Speak text
-await ttsService.speak('Play G on the B string');
-
-// Speak immediately (interrupts current speech)
-await ttsService.speakNow('Correct!');
-
-// Stop speaking
-await ttsService.stop();
-
-// Check status
-if (ttsService.isSpeaking()) { ... }
-```
-
-### Pitch Detection (Scaffolded - Phase 2)
-
-```typescript
-import { pitchDetectionService } from '@/services/audio/PitchDetectionService';
-
-// Initialize
-await pitchDetectionService.initialize();
-
-// Start listening
-await pitchDetectionService.startListening();
-
-// Stop listening
-await pitchDetectionService.stopListening();
-```
-
-### Tuner Service (Scaffolded - Phase 2)
-
-```typescript
-import { tunerService } from '@/services/audio/TunerService';
-
-// Start tuner for specific string
-await tunerService.start('E2');
-
-// Stop tuner
-await tunerService.stop();
-
-// Get state
-const state = tunerService.getState();
-```
-
-### Metronome Service (Scaffolded - Phase 2)
-
-```typescript
-import { metronomeService } from '@/services/audio/MetronomeService';
-
-// Start metronome
-await metronomeService.start(120); // 120 BPM
-
-// Stop metronome
-await metronomeService.stop();
-
-// Change tempo
-metronomeService.setTempo(140);
-```
-
----
+See `firestore.rules` for security rules.
 
 ## Development
 
-### Scripts
+### Type Checking
 
 ```bash
-npm start          # Start Expo dev server
-npm run ios        # Run on iOS simulator
-npm run android    # Run on Android emulator
-npm run web        # Run in web browser
-npm run lint       # Run ESLint
-npm run typecheck  # TypeScript type checking
-npm run clean      # Clear cache and restart
+npm run typecheck
 ```
 
-### Testing on Real Device
+### Linting
 
-**Audio features require real device testing!**
+```bash
+npm run lint
+```
 
-1. Install Expo Go on your phone
-2. Run `npm start`
-3. Scan QR code
-4. Test TTS and permissions
+### Environment Variables
 
----
-
-## Roadmap
-
-### Phase 1: Foundation (Complete)
-- [x] Project structure
-- [x] TTS Service
-- [x] Command Generator
-- [x] Theme system
-- [x] Auth-aware routing
-- [x] Practice/Tuner/Profile tabs
-
-### Phase 2: Audio Processing (Next)
-- [ ] Pitch Detection (expo-av + pitchfinder)
-- [ ] Tuner implementation
-- [ ] Metronome implementation
-- [ ] Real-time feedback UI
-
-### Phase 3: Enhancement 📋 (Future)
-- [ ] Real authentication
-- [ ] Progress tracking
-- [ ] User profiles
-- [ ] Custom exercises
-
----
+All Firebase config should be prefixed with `EXPO_PUBLIC_` to be accessible in the app.
 
 ## Troubleshooting
 
-### PowerShell Execution Policy
+### "Missing or insufficient permissions" Error
+- Make sure you've deployed Firestore security rules
+- Run: `firebase deploy --only firestore:rules`
 
-If you see "running scripts is disabled":
+### Metronome Not Working on Mobile
+- Ensure `click.wav` and `accented_click.wav` exist in `assets/sounds/`
+- Check that files are properly formatted WAV files
+- Try clearing cache: `npm run clean`
 
-```powershell
-# Run as Administrator
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Or install packages manually in Command Prompt instead of PowerShell.
-
-### TTS Not Working
-
-- **iOS:** Check device volume and silent mode
-- **Android:** Ensure TTS engine is installed
-- **Both:** Check app permissions
+### Tuner Not Working
+- **Web**: Allow microphone permissions in browser
+- **Mobile**: Tuner requires native implementation (not yet available)
 
 ### Build Errors
-
 ```bash
-# Clear cache
-npm run clean
-
-# Reinstall dependencies
+# Clear cache and reinstall
 rm -rf node_modules
 npm install
+npm run clean
 ```
 
----
+## Platform Support
 
-## Resources
+| Feature | Web | iOS | Android |
+|---------|-----|-----|---------|
+| Authentication | ✅ | ✅ | ✅ |
+| Practice Games | ✅ | ✅ | ✅ |
+| Metronome | ✅ | ✅ | ✅ |
+| Friends System | ✅ | ✅ | ✅ |
+| Tuner | ✅ | ⚠️ Placeholder | ⚠️ Placeholder |
+| Pitch Detection | ✅ | ⚠️ Placeholder | ⚠️ Placeholder |
 
-- [Expo Documentation](https://docs.expo.dev/)
-- [Expo Router](https://docs.expo.dev/router/introduction/)
-- [Expo Speech](https://docs.expo.dev/versions/latest/sdk/speech/)
-- [Expo Audio](https://docs.expo.dev/versions/latest/sdk/audio/)
+## Future Enhancements
 
----
+- [ ] Native pitch detection for mobile tuner
+- [ ] Practice challenges between friends
+- [ ] More practice game modes
+- [ ] Chord recognition
+- [ ] Scale practice
+- [ ] Progress analytics
+- [ ] Practice reminders
+- [ ] Achievement system
 
-## Notes
+## Contributing
 
-### Why This Structure?
-
-- **Expo-First:** Respects Expo's conventions and file-based routing
-- **Services:** Clean separation of business logic from UI
-- **Contexts:** Standard React pattern for global state
-- **Scaffolding:** Phase 2 services exist but aren't fully implemented
-- **No Over-Engineering:** Simple, maintainable patterns
-
-### Auth State (Dummy)
-
-Currently `isAuthenticated` is hardcoded to `true` in `contexts/AuthContext.tsx`.
-
-Change to `false` to test login screen routing.
-
-Phase 3 will implement real authentication.
-
----
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+This project is private and proprietary.
+
+## Support
+
+For issues or questions:
+- Check existing issues in the repository
+- Create a new issue with detailed description
+- Include error messages and screenshots
+
+## Acknowledgments
+
+- Built with [Expo](https://expo.dev/)
+- Audio processing with [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- Backend powered by [Firebase](https://firebase.google.com/)
+- Icons from [SF Symbols](https://developer.apple.com/sf-symbols/)
 
 ---
+
+**Happy Practicing! 🎸🎵**
