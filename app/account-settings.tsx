@@ -12,18 +12,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Stack } from 'expo-router';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function AccountSettingsScreen() {
@@ -34,9 +34,10 @@ export default function AccountSettingsScreen() {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
 
-  const [currentName, setCurrentName] = useState({ firstName: '', lastName: '' });
+  const [currentName, setCurrentName] = useState({ firstName: '', lastName: '', username: '' });
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,6 +57,7 @@ export default function AccountSettingsScreen() {
           setCurrentName({
             firstName: data.firstName || '',
             lastName: data.lastName || '',
+            username: data.username || '',
           });
         }
       } catch (error) {
@@ -71,24 +73,60 @@ export default function AccountSettingsScreen() {
 
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
+    const trimmedUsername = username.trim().toLowerCase();
 
     if (!trimmedFirstName || !trimmedLastName) {
       showToast('Please enter both first and last name', 'error');
       return;
     }
 
+    if (trimmedUsername && trimmedUsername.length < 3) {
+      showToast('Username must be at least 3 characters', 'error');
+      return;
+    }
+
+    if (trimmedUsername && !/^[a-z0-9_]+$/.test(trimmedUsername)) {
+      showToast('Username can only contain lowercase letters, numbers, and underscores', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      // Check if username is already taken (if changing username)
+      if (trimmedUsername && trimmedUsername !== currentName.username) {
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usernameTaken = usersSnapshot.docs.some(
+          doc => doc.id !== user.uid && doc.data().username === trimmedUsername
+        );
+
+        if (usernameTaken) {
+          showToast('Username already taken', 'error');
+          setLoading(false);
+          return;
+        }
+      }
+
+      const updateData: any = {
         firstName: trimmedFirstName,
         lastName: trimmedLastName,
         updatedAt: new Date(),
-      });
+      };
 
-      setCurrentName({ firstName: trimmedFirstName, lastName: trimmedLastName });
+      if (trimmedUsername) {
+        updateData.username = trimmedUsername;
+      }
+
+      await updateDoc(doc(db, 'users', user.uid), updateData);
+
+      setCurrentName({ 
+        firstName: trimmedFirstName, 
+        lastName: trimmedLastName,
+        username: trimmedUsername || currentName.username,
+      });
       showToast('Profile updated successfully', 'success');
       setFirstName('');
       setLastName('');
+      setUsername('');
       setShowProfileForm(false);
     } catch (error: any) {
       showToast(error.message || 'Failed to update profile', 'error');
@@ -160,12 +198,24 @@ export default function AccountSettingsScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {currentName.firstName && (
+          {(currentName.firstName || currentName.username) && (
             <View style={[styles.infoCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Current Name</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {currentName.firstName} {currentName.lastName}
-              </Text>
+              {currentName.firstName && (
+                <>
+                  <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Current Name</Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    {currentName.firstName} {currentName.lastName}
+                  </Text>
+                </>
+              )}
+              {currentName.username && (
+                <>
+                  <Text style={[styles.infoLabel, { color: colors.textSecondary, marginTop: currentName.firstName ? 12 : 0 }]}>Username</Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    @{currentName.username}
+                  </Text>
+                </>
+              )}
             </View>
           )}
 
@@ -179,9 +229,9 @@ export default function AccountSettingsScreen() {
                   <IconSymbol name="person.fill" size={24} color={colors.primary} />
                 </View>
                 <View>
-                  <Text style={[styles.actionTitle, { color: colors.text }]}>Update Name</Text>
+                  <Text style={[styles.actionTitle, { color: colors.text }]}>Update Profile</Text>
                   <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
-                    Change your first and last name
+                    Change your name and username
                   </Text>
                 </View>
               </View>
@@ -190,10 +240,28 @@ export default function AccountSettingsScreen() {
           ) : (
             <View style={[styles.formCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.primary }]}>
               <View style={styles.formHeader}>
-                <Text style={[styles.formTitle, { color: colors.text }]}>Update Name</Text>
+                <Text style={[styles.formTitle, { color: colors.text }]}>Update Profile</Text>
                 <TouchableOpacity onPress={() => setShowProfileForm(false)}>
                   <IconSymbol name="xmark.circle.fill" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.text }]}>Username</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                  placeholder={currentName.username || "Choose a unique username"}
+                  placeholderTextColor={colors.textSecondary}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                  maxLength={20}
+                />
+                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                  Lowercase letters, numbers, and underscores only
+                </Text>
               </View>
 
               <View style={styles.inputContainer}>
@@ -414,4 +482,5 @@ const styles = StyleSheet.create({
   eyeSlash: { position: 'absolute', width: 20, height: 1.5, transform: [{ rotate: '45deg' }] },
   submitButton: { height: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   submitButtonText: { fontSize: 16, fontWeight: '700' },
+  hint: { fontSize: 12, marginTop: 4 },
 });

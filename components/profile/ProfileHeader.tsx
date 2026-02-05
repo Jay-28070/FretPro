@@ -14,10 +14,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface ProfileHeaderProps {
   username: string;
   friendCount: number;
+  pendingRequestsCount?: number;
   avatarUrl?: string;
 }
 
-export function ProfileHeader({ username, friendCount, avatarUrl }: ProfileHeaderProps) {
+export function ProfileHeader({ username, friendCount, pendingRequestsCount = 0, avatarUrl }: ProfileHeaderProps) {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
@@ -44,14 +45,28 @@ export function ProfileHeader({ username, friendCount, avatarUrl }: ProfileHeade
         onPress={handleFriendsPress}
         activeOpacity={0.7}
       >
-        <IconSymbol 
-          name="person.2.fill" 
-          size={16} 
-          color={colors.textSecondary}
-        />
+        <View style={styles.friendIconContainer}>
+          <IconSymbol 
+            name="person.2.fill" 
+            size={16} 
+            color={colors.textSecondary}
+          />
+          {pendingRequestsCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: colors.error }]}>
+              <Text style={[styles.badgeText, { color: colors.background }]}>
+                {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.friendCountText, { color: colors.textSecondary }]}>
           {friendCount} {friendCount === 1 ? 'Friend' : 'Friends'}
         </Text>
+        {pendingRequestsCount > 0 && (
+          <Text style={[styles.pendingText, { color: colors.error }]}>
+            • {pendingRequestsCount} pending
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -86,8 +101,30 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
+  friendIconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
   friendCountText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  pendingText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

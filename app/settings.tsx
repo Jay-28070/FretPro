@@ -8,7 +8,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Stack, useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
   const { colorScheme, themePreference, setThemePreference } = useTheme();
@@ -21,27 +21,38 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Sign out error:', error);
-            }
+    if (Platform.OS === 'web') {
+      // Web: Use window.confirm
+      if (window.confirm('Are you sure you want to sign out?')) {
+        signOut().catch((error) => {
+          console.error('Sign out error:', error);
+          window.alert('Failed to sign out. Please try again.');
+        });
+      }
+    } else {
+      // Mobile: Use Alert.alert
+      Alert.alert(
+        'Sign Out',
+        'Are you sure you want to sign out?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Sign Out',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await signOut();
+              } catch (error) {
+                console.error('Sign out error:', error);
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (

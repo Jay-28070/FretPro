@@ -94,16 +94,23 @@ export default function FriendsScreen() {
     if (!user) return;
 
     try {
-      // Load friends
+      console.log('[Friends] Loading friends data for user:', user.uid);
+      
+      // Load friends (accepted friendships)
+      console.log('[Friends] Querying friends collection...');
       const friendsQuery = query(
         collection(db, 'friends'),
         where('status', '==', 'accepted')
       );
       const friendsSnapshot = await getDocs(friendsQuery);
+      console.log('[Friends] Found', friendsSnapshot.docs.length, 'accepted friendships');
 
       const friendsList: Friend[] = [];
       for (const friendDoc of friendsSnapshot.docs) {
         const data = friendDoc.data();
+        // Check if current user is part of this friendship
+        if (data.user1 !== user.uid && data.user2 !== user.uid) continue;
+        
         const friendUserId = data.user1 === user.uid ? data.user2 : data.user1;
 
         // Get friend's profile
@@ -122,63 +129,86 @@ export default function FriendsScreen() {
         }
       }
       setFriends(friendsList);
+      console.log('[Friends] Loaded', friendsList.length, 'friends');
 
-      // Load pending friend requests
-      const requestsQuery = query(
-        collection(db, 'friends'),
-        where('user2', '==', user.uid),
-        where('status', '==', 'pending')
+      // Load ALL pending friend requests (both received and sent)
+      console.log('[Friends] Querying pending requests...');
+      const allRequestsSnapshot = await getDocs(
+        query(collection(db, 'friends'), where('status', '==', 'pending'))
       );
-      const requestsSnapshot = await getDocs(requestsQuery);
+      console.log('[Friends] Found', allRequestsSnapshot.docs.length, 'pending requests');
 
       const requestsList: FriendRequest[] = [];
-      for (const requestDoc of requestsSnapshot.docs) {
+      for (const requestDoc of allRequestsSnapshot.docs) {
         const data = requestDoc.data();
-        const fromProfile = await getDoc(doc(db, 'users', data.user1));
-        if (fromProfile.exists()) {
-          const profile = fromProfile.data();
-          requestsList.push({
-            id: requestDoc.id,
-            fromUserId: data.user1,
-            fromUsername: profile.username || profile.email?.split('@')[0] || 'User',
-            fromName: `${profile.firstName} ${profile.lastName}`.trim(),
-            createdAt: data.createdAt?.toDate() || new Date(),
-          });
-        }
-      }
-      setFriendRequests(requestsList);
-
-      // Load challenges (if any)
-      const challengesQuery = query(
-        collection(db, 'challenges'),
-        where('status', '==', 'completed')
-      );
-      const challengesSnapshot = await getDocs(challengesQuery);
-
-      const challengesList: Challenge[] = [];
-      for (const challengeDoc of challengesSnapshot.docs) {
-        const data = challengeDoc.data();
-        if (data.challenger === user.uid || data.opponent === user.uid) {
-          const isChallenger = data.challenger === user.uid;
-          const opponentId = isChallenger ? data.opponent : data.challenger;
-          const opponentProfile = await getDoc(doc(db, 'users', opponentId));
-
-          if (opponentProfile.exists()) {
-            const profile = opponentProfile.data();
-            challengesList.push({
-              id: challengeDoc.id,
-              opponent: profile.username || profile.email?.split('@')[0] || 'User',
-              yourScore: isChallenger ? data.challengerScore : data.opponentScore,
-              theirScore: isChallenger ? data.opponentScore : data.challengerScore,
-              won: isChallenger ? data.challengerScore > data.opponentScore : data.opponentScore > data.challengerScore,
+        
+        // Only show requests where current user is the RECEIVER (not the sender)
+        // Check if current user is part of this friendship AND didn't send it
+        const isPartOfFriendship = data.user1 === user.uid || data.user2 === user.uid;
+        const isReceiver = data.requestedBy !== user.uid;
+        
+        if (isPartOfFriendship && isReceiver) {
+          // Get the sender's ID (the one who is NOT the current user)
+          const senderId = data.user1 === user.uid ? data.user2 : data.user1;
+          
+          const fromProfile = await getDoc(doc(db, 'users', senderId));
+          if (fromProfile.exists()) {
+            const profile = fromProfile.data();
+            requestsList.push({
+              id: requestDoc.id,
+              fromUserId: senderId,
+              fromUsername: profile.username || profile.email?.split('@')[0] || 'User',
+              fromName: `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User',
+              createdAt: data.createdAt?.toDate() || new Date(),
             });
           }
         }
       }
-      setChallenges(challengesList);
+      setFriendRequests(requestsList);
+      console.log('[Friends] Loaded', requestsList.length, 'friend requests for current user');
 
-    } catch (error) {
-      console.error('Error loading friends data:', error);
+      // Load challenges (if any) - make this optional since challenges might not exist yet
+      console.log('[Friends] Querying challenges...');
+      try {
+        const challengesQuery = query(
+          collection(db, 'challenges'),
+          where('status', '==', 'completed')
+        );
+        const challengesSnapshot = await getDocs(challengesQuery);
+        console.log('[Friends] Found', challengesSnapshot.docs.length, 'completed challenges');
+
+        const challengesList: Challenge[] = [];
+        for (const challengeDoc of challengesSnapshot.docs) {
+          const data = challengeDoc.data();
+          if (data.challenger === user.uid || data.opponent === user.uid) {
+            const isChallenger = data.challenger === user.uid;
+            const opponentId = isChallenger ? data.opponent : data.challenger;
+            const opponentProfile = await getDoc(doc(db, 'users', opponentId));
+
+            if (opponentProfile.exists()) {
+              const profile = opponentProfile.data();
+              challengesList.push({
+                id: challengeDoc.id,
+                opponent: profile.username || profile.email?.split('@')[0] || 'User',
+                yourScore: isChallenger ? data.challengerScore : data.opponentScore,
+                theirScore: isChallenger ? data.opponentScore : data.challengerScore,
+                won: isChallenger ? data.challengerScore > data.opponentScore : data.opponentScore > data.challengerScore,
+              });
+            }
+          }
+        }
+        setChallenges(challengesList);
+        console.log('[Friends] Loaded', challengesList.length, 'challenges');
+      } catch (challengeError: any) {
+        console.warn('[Friends] Could not load challenges (this is OK if challenges feature not implemented yet):', challengeError?.message);
+        setChallenges([]); // Just set empty array, don't fail the whole function
+      }
+
+      console.log('[Friends] Successfully loaded all friends data');
+    } catch (error: any) {
+      console.error('[Friends] Error loading friends data:', error);
+      console.error('[Friends] Error code:', error?.code);
+      console.error('[Friends] Error message:', error?.message);
       // Don't show error to user - just set empty states
       setFriends([]);
       setFriendRequests([]);
@@ -242,6 +272,8 @@ export default function FriendsScreen() {
       setLeaderboard(entries);
     } catch (error) {
       console.error('Error loading leaderboard:', error);
+      // Silently fail - just show empty leaderboard
+      setLeaderboard([]);
     }
   };
 
@@ -256,22 +288,44 @@ export default function FriendsScreen() {
       setSearching(true);
       try {
         const usersSnapshot = await getDocs(collection(db, 'users'));
+        const searchLower = searchQuery.toLowerCase().trim();
+        
         const results = usersSnapshot.docs
           .filter(doc => {
+            if (doc.id === user.uid) return false; // Don't show current user
+            
             const data = doc.data();
-            const username = data.username || data.email?.split('@')[0] || '';
-            const fullName = `${data.firstName} ${data.lastName}`.toLowerCase();
-            const searchLower = searchQuery.toLowerCase();
+            const username = (data.username || '').toLowerCase();
+            const firstName = (data.firstName || '').toLowerCase();
+            const lastName = (data.lastName || '').toLowerCase();
+            const fullName = `${firstName} ${lastName}`.trim();
+            const email = (data.email || '').toLowerCase();
 
-            return doc.id !== user.uid &&
-              (username.toLowerCase().includes(searchLower) ||
-                fullName.includes(searchLower));
+            // Search by: first name, last name, full name, username, or email
+            return firstName.includes(searchLower) ||
+                   lastName.includes(searchLower) ||
+                   fullName.includes(searchLower) ||
+                   username.includes(searchLower) ||
+                   email.includes(searchLower);
           })
           .map(doc => ({
             id: doc.id,
             ...doc.data(),
             username: doc.data().username || doc.data().email?.split('@')[0] || 'User',
-          }));
+          }))
+          .sort((a, b) => {
+            // Sort by relevance: exact name matches first, then username matches
+            const aFullName = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+            const bFullName = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
+            
+            const aNameMatch = aFullName.startsWith(searchLower);
+            const bNameMatch = bFullName.startsWith(searchLower);
+            
+            if (aNameMatch && !bNameMatch) return -1;
+            if (!aNameMatch && bNameMatch) return 1;
+            
+            return aFullName.localeCompare(bFullName);
+          });
 
         setSearchResults(results);
       } catch (error) {
@@ -292,6 +346,25 @@ export default function FriendsScreen() {
       // Create friendship document with sorted IDs
       const friendshipId = [user.uid, toUserId].sort().join('_');
 
+      // Check if friendship already exists
+      const existingFriendship = await getDoc(doc(db, 'friends', friendshipId));
+      
+      if (existingFriendship.exists()) {
+        const status = existingFriendship.data().status;
+        if (status === 'accepted') {
+          if (Platform.OS === 'web') {
+            window.alert('You are already friends with this user!');
+          }
+          return;
+        } else if (status === 'pending') {
+          if (Platform.OS === 'web') {
+            window.alert('Friend request already sent!');
+          }
+          return;
+        }
+      }
+
+      // Create new friend request
       await setDoc(doc(db, 'friends', friendshipId), {
         user1: user.uid < toUserId ? user.uid : toUserId,
         user2: user.uid < toUserId ? toUserId : user.uid,
@@ -305,6 +378,9 @@ export default function FriendsScreen() {
       }
       setSearchQuery('');
       setSearchResults([]);
+      
+      // Reload friends data to update UI
+      loadFriendsData();
     } catch (error) {
       console.error('Error sending friend request:', error);
       if (Platform.OS === 'web') {
@@ -346,7 +422,7 @@ export default function FriendsScreen() {
           <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search friends or add new..."
+            placeholder="Search by name or username..."
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -441,8 +517,8 @@ export default function FriendsScreen() {
                           acceptedAt: new Date(),
                         }, { merge: true });
                         setFriendRequests(prev => prev.filter(r => r.id !== request.id));
-                        // Reload friends
-                        window.location.reload();
+                        // Reload friends data
+                        await loadFriendsData();
                       } catch (error) {
                         console.error('Error accepting request:', error);
                       }
