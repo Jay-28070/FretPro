@@ -134,7 +134,8 @@ class TunerService {
     this.state.currentFrequency = result.frequency;
     this.state.confidence = result.confidence;
 
-    if (result.frequency && result.confidence > 0.5) {
+    // Require both frequency detection AND reasonable confidence (>0.4)
+    if (result.frequency && result.confidence > 0.4) {
       // Find the closest string or use target string
       const targetFreq = this.state.targetString
         ? GUITAR_STRINGS[this.state.targetString].frequency
@@ -155,9 +156,11 @@ class TunerService {
         }
       }
     } else {
-      // No reliable frequency detected
+      // No reliable frequency detected - reset state
       this.state.centsOff = 0;
       this.state.isInTune = false;
+      // Keep the last detected string for a moment (don't reset immediately)
+      // this.state.targetString = null;
     }
 
     this.notifyCallbacks();

@@ -194,22 +194,39 @@ class ScoreService {
     difficulty: Difficulty
   ): Promise<Array<HighScore & { userName: string; userId: string }>> {
     try {
-      // Get user's friends
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const friends = userDoc.exists() ? (userDoc.data().friends || []) : [];
+      // Get user's friends from friends collection
+      const friendsQuery = query(
+        collection(db, 'friends'),
+        where('status', '==', 'accepted')
+      );
+      const friendsSnapshot = await getDocs(friendsQuery);
 
-      if (friends.length === 0) {
+      // Extract friend user IDs
+      const friendIds: string[] = [];
+      friendsSnapshot.docs.forEach(friendDoc => {
+        const data = friendDoc.data();
+        // Check if current user is part of this friendship
+        if (data.user1 === userId) {
+          friendIds.push(data.user2);
+        } else if (data.user2 === userId) {
+          friendIds.push(data.user1);
+        }
+      });
+
+      if (friendIds.length === 0) {
         return [];
       }
 
       // Get high scores for all friends
       const scores = await Promise.all(
-        friends.map(async (friendId: string) => {
+        friendIds.map(async (friendId: string) => {
           const highScore = await this.getHighScore(friendId, gameType, difficulty);
           if (!highScore) return null;
 
           const friendDoc = await getDoc(doc(db, 'users', friendId));
-          const userName = friendDoc.exists() ? friendDoc.data().displayName : 'Unknown';
+          const userName = friendDoc.exists() 
+            ? (friendDoc.data().username || friendDoc.data().displayName || 'Unknown')
+            : 'Unknown';
 
           return {
             ...highScore,

@@ -30,14 +30,19 @@ export default function TunerScreen() {
   useEffect(() => {
     const init = async () => {
       try {
+        console.log('[Tuner] Initializing...');
+        
         // Add callback to receive tuner updates
         tunerService.addCallback(handleTunerUpdate);
 
         // Start tuner (auto-detect mode)
+        console.log('[Tuner] Starting tuner service...');
         await tunerService.start();
+        console.log('[Tuner] Tuner service started successfully');
         setIsListening(true);
       } catch (error) {
-        console.error('Failed to start tuner:', error);
+        console.error('[Tuner] Failed to start tuner:', error);
+        alert(`Tuner error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     };
 
@@ -45,6 +50,7 @@ export default function TunerScreen() {
 
     return () => {
       // Cleanup
+      console.log('[Tuner] Cleaning up...');
       tunerService.removeCallback(handleTunerUpdate);
       tunerService.stop();
     };
@@ -94,33 +100,23 @@ export default function TunerScreen() {
     setFrequency(state.currentFrequency || 0);
     setCents(state.centsOff);
 
-    // Update detected note based on target string or frequency
-    if (state.targetString && state.currentFrequency && state.confidence > 0.5) {
-      // Show just the note name, not the full string name
-      const noteMap: Record<string, string> = {
-        'Low E': 'E',
-        'A': 'A',
-        'D': 'D',
-        'G': 'G',
-        'B': 'B',
-        'High E': 'E'
-      };
-      const stringInfo = tunerService.getStringInfo(state.targetString);
-      setDetectedNote(noteMap[stringInfo.name] || stringInfo.name);
-    } else if (state.currentFrequency && state.confidence > 0.5) {
-      // Auto-detect closest note
+    // Only show note if we have a frequency and good confidence
+    if (state.currentFrequency && state.confidence > 0.4) {
+      // Always auto-detect from frequency (don't rely on targetString)
       const closestNote = findClosestNote(state.currentFrequency);
-      setDetectedNote(closestNote.name);
+      setDetectedNote(`${closestNote.name}${closestNote.octave}`);
+      
+      // Update tuning status
+      if (state.isInTune) {
+        setTuningStatus('in-tune');
+      } else if (Math.abs(state.centsOff) <= 25) {
+        setTuningStatus('close');
+      } else {
+        setTuningStatus('far');
+      }
     } else {
+      // No signal - reset display
       setDetectedNote('--');
-    }
-
-    // Update tuning status
-    if (state.isInTune) {
-      setTuningStatus('in-tune');
-    } else if (Math.abs(state.centsOff) <= 25) {
-      setTuningStatus('close');
-    } else {
       setTuningStatus('far');
     }
 
@@ -134,24 +130,38 @@ export default function TunerScreen() {
     }).start();
   };
 
-  // All notes for detection
+  // All notes for detection with octaves (extended range for low notes)
   const ALL_NOTES = [
-    { name: 'C', freq: 32.70 }, { name: 'C#', freq: 34.65 }, { name: 'D', freq: 36.71 },
-    { name: 'D#', freq: 38.89 }, { name: 'E', freq: 41.20 }, { name: 'F', freq: 43.65 },
-    { name: 'F#', freq: 46.25 }, { name: 'G', freq: 49.00 }, { name: 'G#', freq: 51.91 },
-    { name: 'A', freq: 55.00 }, { name: 'A#', freq: 58.27 }, { name: 'B', freq: 61.74 },
-    { name: 'C', freq: 65.41 }, { name: 'C#', freq: 69.30 }, { name: 'D', freq: 73.42 },
-    { name: 'D#', freq: 77.78 }, { name: 'E', freq: 82.41 }, { name: 'F', freq: 87.31 },
-    { name: 'F#', freq: 92.50 }, { name: 'G', freq: 98.00 }, { name: 'G#', freq: 103.83 },
-    { name: 'A', freq: 110.00 }, { name: 'A#', freq: 116.54 }, { name: 'B', freq: 123.47 },
-    { name: 'C', freq: 130.81 }, { name: 'C#', freq: 138.59 }, { name: 'D', freq: 146.83 },
-    { name: 'D#', freq: 155.56 }, { name: 'E', freq: 164.81 }, { name: 'F', freq: 174.61 },
-    { name: 'F#', freq: 185.00 }, { name: 'G', freq: 196.00 }, { name: 'G#', freq: 207.65 },
-    { name: 'A', freq: 220.00 }, { name: 'A#', freq: 233.08 }, { name: 'B', freq: 246.94 },
-    { name: 'C', freq: 261.63 }, { name: 'C#', freq: 277.18 }, { name: 'D', freq: 293.66 },
-    { name: 'D#', freq: 311.13 }, { name: 'E', freq: 329.63 }, { name: 'F', freq: 349.23 },
-    { name: 'F#', freq: 369.99 }, { name: 'G', freq: 392.00 }, { name: 'G#', freq: 415.30 },
-    { name: 'A', freq: 440.00 }, { name: 'A#', freq: 466.16 }, { name: 'B', freq: 493.88 },
+    // Octave 0 (very low - for bass instruments)
+    { name: 'C', octave: 0, freq: 16.35 }, { name: 'C#', octave: 0, freq: 17.32 }, { name: 'D', octave: 0, freq: 18.35 },
+    { name: 'D#', octave: 0, freq: 19.45 }, { name: 'E', octave: 0, freq: 20.60 }, { name: 'F', octave: 0, freq: 21.83 },
+    { name: 'F#', octave: 0, freq: 23.12 }, { name: 'G', octave: 0, freq: 24.50 }, { name: 'G#', octave: 0, freq: 25.96 },
+    { name: 'A', octave: 0, freq: 27.50 }, { name: 'A#', octave: 0, freq: 29.14 }, { name: 'B', octave: 0, freq: 30.87 },
+    // Octave 1
+    { name: 'C', octave: 1, freq: 32.70 }, { name: 'C#', octave: 1, freq: 34.65 }, { name: 'D', octave: 1, freq: 36.71 },
+    { name: 'D#', octave: 1, freq: 38.89 }, { name: 'E', octave: 1, freq: 41.20 }, { name: 'F', octave: 1, freq: 43.65 },
+    { name: 'F#', octave: 1, freq: 46.25 }, { name: 'G', octave: 1, freq: 49.00 }, { name: 'G#', octave: 1, freq: 51.91 },
+    { name: 'A', octave: 1, freq: 55.00 }, { name: 'A#', octave: 1, freq: 58.27 }, { name: 'B', octave: 1, freq: 61.74 },
+    // Octave 2 (standard guitar range)
+    { name: 'C', octave: 2, freq: 65.41 }, { name: 'C#', octave: 2, freq: 69.30 }, { name: 'D', octave: 2, freq: 73.42 },
+    { name: 'D#', octave: 2, freq: 77.78 }, { name: 'E', octave: 2, freq: 82.41 }, { name: 'F', octave: 2, freq: 87.31 },
+    { name: 'F#', octave: 2, freq: 92.50 }, { name: 'G', octave: 2, freq: 98.00 }, { name: 'G#', octave: 2, freq: 103.83 },
+    { name: 'A', octave: 2, freq: 110.00 }, { name: 'A#', octave: 2, freq: 116.54 }, { name: 'B', octave: 2, freq: 123.47 },
+    // Octave 3
+    { name: 'C', octave: 3, freq: 130.81 }, { name: 'C#', octave: 3, freq: 138.59 }, { name: 'D', octave: 3, freq: 146.83 },
+    { name: 'D#', octave: 3, freq: 155.56 }, { name: 'E', octave: 3, freq: 164.81 }, { name: 'F', octave: 3, freq: 174.61 },
+    { name: 'F#', octave: 3, freq: 185.00 }, { name: 'G', octave: 3, freq: 196.00 }, { name: 'G#', octave: 3, freq: 207.65 },
+    { name: 'A', octave: 3, freq: 220.00 }, { name: 'A#', octave: 3, freq: 233.08 }, { name: 'B', octave: 3, freq: 246.94 },
+    // Octave 4
+    { name: 'C', octave: 4, freq: 261.63 }, { name: 'C#', octave: 4, freq: 277.18 }, { name: 'D', octave: 4, freq: 293.66 },
+    { name: 'D#', octave: 4, freq: 311.13 }, { name: 'E', octave: 4, freq: 329.63 }, { name: 'F', octave: 4, freq: 349.23 },
+    { name: 'F#', octave: 4, freq: 369.99 }, { name: 'G', octave: 4, freq: 392.00 }, { name: 'G#', octave: 4, freq: 415.30 },
+    { name: 'A', octave: 4, freq: 440.00 }, { name: 'A#', octave: 4, freq: 466.16 }, { name: 'B', octave: 4, freq: 493.88 },
+    // Octave 5 (high notes)
+    { name: 'C', octave: 5, freq: 523.25 }, { name: 'C#', octave: 5, freq: 554.37 }, { name: 'D', octave: 5, freq: 587.33 },
+    { name: 'D#', octave: 5, freq: 622.25 }, { name: 'E', octave: 5, freq: 659.25 }, { name: 'F', octave: 5, freq: 698.46 },
+    { name: 'F#', octave: 5, freq: 739.99 }, { name: 'G', octave: 5, freq: 783.99 }, { name: 'G#', octave: 5, freq: 830.61 },
+    { name: 'A', octave: 5, freq: 880.00 }, { name: 'A#', octave: 5, freq: 932.33 }, { name: 'B', octave: 5, freq: 987.77 },
   ];
 
   const findClosestNote = (freq: number) => {
@@ -226,9 +236,20 @@ export default function TunerScreen() {
             },
           ]}
         >
-          <Text style={[styles.noteText, { color: getStatusColor() }]}>
-            {detectedNote}
-          </Text>
+          {detectedNote === '--' ? (
+            <Text style={[styles.noteText, { color: getStatusColor() }]}>
+              {detectedNote}
+            </Text>
+          ) : (
+            <View style={styles.noteContainer}>
+              <Text style={[styles.noteText, { color: getStatusColor() }]}>
+                {detectedNote.replace(/\d+$/, '')}
+              </Text>
+              <Text style={[styles.octaveText, { color: getStatusColor() }]}>
+                {detectedNote.match(/\d+$/)?.[0] || ''}
+              </Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Tuning indicators with icons */}
@@ -306,7 +327,7 @@ export default function TunerScreen() {
 
       {/* Hint */}
       <Text style={[styles.hint, { color: colors.textTertiary }]}>
-        Play any note on your guitar • Web: Simulation mode
+        Play any note on your guitar • Real-time detection
       </Text>
     </SafeAreaView>
   );
@@ -363,10 +384,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  noteContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
   noteText: {
     fontSize: 56,
     fontWeight: '900',
     letterSpacing: 2,
+  },
+  octaveText: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 8,
+    marginLeft: 2,
   },
   tuningRow: {
     flexDirection: 'row',

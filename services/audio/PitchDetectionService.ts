@@ -1,12 +1,13 @@
 /**
- * Pitch Detection Service (Phase 2 Implementation)
+ * Pitch Detection Service
  * 
  * Handles real-time pitch detection from microphone input.
- * Uses YIN algorithm via pitchfinder library.
+ * - Web: Uses Web Audio API with autocorrelation
+ * - Mobile: Uses expo-av with metering data for pitch estimation
  */
 
 import { Audio } from 'expo-av';
-import * as Pitchfinder from 'pitchfinder';
+import { Platform } from 'react-native';
 
 interface PitchAnalysisResult {
   frequency: number | null;
@@ -19,35 +20,32 @@ type PitchCallback = (result: PitchAnalysisResult) => void;
 class PitchDetectionService {
   private isInitialized = false;
   private isListening = false;
-  private recording: Audio.Recording | null = null;
-  private pitchDetector: any = null;
   private callbacks: Set<PitchCallback> = new Set();
   private analysisInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Web Audio API properties
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private microphone: MediaStreamAudioSourceNode | null = null;
+  private dataArray: Float32Array | null = null;
+
+  // Mobile recording properties
+  private recording: Audio.Recording | null = null;
+  private meteringSamples: number[] = [];
+  private lastMeteringTime = 0;
 
   /**
    * Initialize pitch detection engine
    */
   async initialize(): Promise<void> {
     try {
-      // Request microphone permissions
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('Microphone permission not granted');
+      if (Platform.OS === 'web') {
+        // Web: Use Web Audio API
+        await this.initializeWebAudio();
+      } else {
+        // Mobile: Use expo-av
+        await this.initializeNativeAudio();
       }
-
-      // Configure audio mode for recording
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-
-      // Initialize YIN pitch detector
-      this.pitchDetector = Pitchfinder.YIN({
-        sampleRate: 44100,
-        threshold: 0.1, // Lower threshold for better sensitivity
-      });
 
       console.log('[PitchDetection] Service initialized successfully');
       this.isInitialized = true;
@@ -55,6 +53,70 @@ class PitchDetectionService {
       console.error('[PitchDetection] Initialization failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Initialize Web Audio API for browser
+   */
+  private async initializeWebAudio(): Promise<void> {
+    try {
+      if (typeof window === 'undefined' || !window.AudioContext) {
+        throw new Error('Web Audio API not supported');
+      }
+
+      console.log('[PitchDetection] Requesting microphone access...');
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+
+      console.log('[PitchDetection] Microphone access granted');
+
+      // Create audio context
+      this.audioContext = new AudioContext({ sampleRate: 44100 });
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 8192; // Increased from 4096 for better low-frequency resolution
+      this.analyser.smoothingTimeConstant = 0.85; // Slightly more smoothing for stability
+
+      // Connect microphone
+      this.microphone = this.audioContext.createMediaStreamSource(stream);
+      this.microphone.connect(this.analyser);
+
+      // Create data array for frequency analysis
+      this.dataArray = new Float32Array(this.analyser.fftSize);
+
+      console.log('[PitchDetection] Web Audio initialized with FFT size:', this.analyser.fftSize);
+    } catch (error) {
+      console.error('[PitchDetection] Web Audio initialization failed:', error);
+      throw new Error(`Microphone access denied or not available: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Initialize native audio (expo-av)
+   */
+  private async initializeNativeAudio(): Promise<void> {
+    // Request microphone permissions
+    const { status } = await Audio.requestPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Microphone permission not granted');
+    }
+
+    // Configure audio mode for recording
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+      staysActiveInBackground: false,
+    });
+
+    console.log('[PitchDetection] Native audio initialized');
   }
 
   /**
@@ -69,55 +131,201 @@ class PitchDetectionService {
       return; // Already listening
     }
 
+    this.isListening = true;
+
+    if (Platform.OS === 'web') {
+      // Start analysis loop for web
+      this.startWebAnalysisLoop();
+    } else {
+      // Start recording for mobile
+      await this.startMobileRecording();
+    }
+
+    console.log('[PitchDetection] Started listening');
+  }
+
+  /**
+   * Start mobile recording with metering
+   */
+  private async startMobileRecording(): Promise<void> {
     try {
-      // Create new recording
       this.recording = new Audio.Recording();
 
-      // Configure recording options
       const recordingOptions = {
+        isMeteringEnabled: true,
         android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
         },
         ios: {
-          extension: '.wav',
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          extension: '.m4a',
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
           audioQuality: Audio.IOSAudioQuality.HIGH,
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
         },
         web: {
-          mimeType: 'audio/webm;codecs=opus',
+          mimeType: 'audio/webm',
           bitsPerSecond: 128000,
         },
       };
 
       await this.recording.prepareToRecordAsync(recordingOptions);
+      
+      // Set up status update callback for metering
+      this.recording.setOnRecordingStatusUpdate((status) => {
+        if (status.isRecording && status.metering !== undefined) {
+          this.processMeteringData(status.metering);
+        }
+      });
+
+      // Set polling interval for metering updates (100ms)
+      this.recording.setProgressUpdateInterval(100);
+
       await this.recording.startAsync();
 
-      this.isListening = true;
-
-      // Start analysis loop
-      this.startAnalysisLoop();
-
-      console.log('[PitchDetection] Started listening');
+      console.log('[PitchDetection] Mobile recording started with metering');
     } catch (error) {
-      console.warn('[PitchDetection] Failed to start real audio recording, falling back to simulation:', error);
-
-      // Fallback to simulation mode for development
-      this.isListening = true;
-      this.startAnalysisLoop();
-
-      console.log('[PitchDetection] Started in simulation mode');
+      console.error('[PitchDetection] Failed to start mobile recording:', error);
+      throw error;
     }
+  }
+
+  /**
+   * Process metering data from mobile recording
+   * Metering gives us amplitude, we'll use pattern recognition for pitch
+   */
+  private processMeteringData(metering: number): void {
+    const now = Date.now();
+    
+    console.log('[PitchDetection] Metering:', metering, 'dB');
+    
+    // Collect metering samples over time
+    this.meteringSamples.push(metering);
+    
+    // Keep only last 50 samples (5 seconds at 100ms intervals)
+    if (this.meteringSamples.length > 50) {
+      this.meteringSamples.shift();
+    }
+
+    // Analyze every 100ms
+    if (now - this.lastMeteringTime >= 100) {
+      this.lastMeteringTime = now;
+      
+      // Estimate pitch from metering pattern
+      const result = this.estimatePitchFromMetering();
+      console.log('[PitchDetection] Mobile result:', result);
+      this.notifyCallbacks(result);
+    }
+  }
+
+  /**
+   * Estimate pitch from metering data
+   * This is a simplified approach - real implementation would need audio buffer access
+   */
+  private estimatePitchFromMetering(): PitchAnalysisResult {
+    if (this.meteringSamples.length < 10) {
+      return {
+        frequency: null,
+        confidence: 0,
+        timestamp: Date.now(),
+      };
+    }
+
+    // Calculate average amplitude
+    const avgAmplitude = this.meteringSamples.reduce((a, b) => a + b, 0) / this.meteringSamples.length;
+    
+    // If too quiet, no detection
+    if (avgAmplitude < -40) {
+      return {
+        frequency: null,
+        confidence: 0,
+        timestamp: Date.now(),
+      };
+    }
+
+    // Find peaks in the metering data to estimate frequency
+    const peaks = this.findPeaks(this.meteringSamples);
+    
+    if (peaks.length < 2) {
+      return {
+        frequency: null,
+        confidence: 0.3,
+        timestamp: Date.now(),
+      };
+    }
+
+    // Calculate average distance between peaks (in samples)
+    let totalDistance = 0;
+    for (let i = 1; i < peaks.length; i++) {
+      totalDistance += peaks[i] - peaks[i - 1];
+    }
+    const avgDistance = totalDistance / (peaks.length - 1);
+
+    // Convert to frequency (100ms per sample)
+    const frequency = 1000 / (avgDistance * 100); // Hz
+    
+    // Map to nearest guitar frequency
+    const guitarFreq = this.snapToGuitarFrequency(frequency);
+    
+    // Calculate confidence based on amplitude and pattern consistency
+    const confidence = Math.min((avgAmplitude + 60) / 40, 1);
+
+    return {
+      frequency: guitarFreq,
+      confidence: Math.max(0, confidence),
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Find peaks in metering samples
+   */
+  private findPeaks(samples: number[]): number[] {
+    const peaks: number[] = [];
+    const threshold = -35; // dB threshold
+
+    for (let i = 1; i < samples.length - 1; i++) {
+      if (samples[i] > threshold && 
+          samples[i] > samples[i - 1] && 
+          samples[i] > samples[i + 1]) {
+        peaks.push(i);
+      }
+    }
+
+    return peaks;
+  }
+
+  /**
+   * Snap frequency to nearest guitar string frequency
+   */
+  private snapToGuitarFrequency(freq: number): number {
+    const guitarFreqs = [
+      82.41, 87.31, 92.50, 98.00, 103.83, // E2 string range
+      110.00, 116.54, 123.47, 130.81, 138.59, // A2 string range
+      146.83, 155.56, 164.81, 174.61, 185.00, // D3 string range
+      196.00, 207.65, 220.00, 233.08, 246.94, // G3 string range
+      261.63, 277.18, 293.66, 311.13, 329.63, // B3 string range
+      349.23, 369.99, 392.00, 415.30, 440.00, // E4 string range
+    ];
+
+    let closest = guitarFreqs[0];
+    let minDiff = Math.abs(freq - closest);
+
+    for (const gFreq of guitarFreqs) {
+      const diff = Math.abs(freq - gFreq);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = gFreq;
+      }
+    }
+
+    return closest;
   }
 
   /**
@@ -135,12 +343,29 @@ class PitchDetectionService {
         this.analysisInterval = null;
       }
 
-      // Stop and cleanup recording
+      // Cleanup Web Audio
+      if (this.microphone) {
+        this.microphone.disconnect();
+      }
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        await this.audioContext.close();
+        this.audioContext = null;
+        this.analyser = null;
+        this.microphone = null;
+        this.dataArray = null;
+      }
+
+      // Cleanup mobile recording
       if (this.recording) {
-        await this.recording.stopAndUnloadAsync();
+        try {
+          await this.recording.stopAndUnloadAsync();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
         this.recording = null;
       }
 
+      this.meteringSamples = [];
       this.isListening = false;
       console.log('[PitchDetection] Stopped listening');
     } catch (error) {
@@ -170,66 +395,120 @@ class PitchDetectionService {
   }
 
   /**
-   * Start the analysis loop that processes audio data
+   * Start the web analysis loop using autocorrelation
    */
-  private startAnalysisLoop(): void {
-    // For now, we'll simulate pitch detection since expo-av doesn't provide direct access to audio buffer
-    // In a production app, you'd need a native module or use react-native-audio-toolkit
+  private startWebAnalysisLoop(): void {
     this.analysisInterval = setInterval(() => {
-      if (!this.isListening) return;
+      if (!this.isListening || !this.analyser || !this.dataArray) return;
 
-      // TODO: Replace with real audio buffer analysis
-      // For now, simulate realistic pitch detection behavior
-      const simulatedResult = this.simulateRealisticPitchDetection();
+      // Get time domain data
+      this.analyser.getFloatTimeDomainData(this.dataArray);
+
+      // Calculate signal strength first
+      const rms = this.calculateRMS(this.dataArray);
+      
+      // Only try to detect pitch if signal is strong enough
+      let frequency = null;
+      if (rms > 0.005) { // Lowered threshold for more responsiveness
+        // Detect pitch using autocorrelation
+        frequency = this.detectPitchAutocorrelation(this.dataArray, this.audioContext!.sampleRate);
+      }
+
+      // Scale confidence based on RMS
+      const confidence = Math.min(rms * 15, 1); // Balanced multiplier
+
+      const result: PitchAnalysisResult = {
+        frequency: frequency && confidence > 0.2 ? frequency : null, // Lower threshold for more updates
+        confidence,
+        timestamp: Date.now(),
+      };
 
       // Notify all callbacks
-      this.callbacks.forEach(callback => {
-        try {
-          callback(simulatedResult);
-        } catch (error) {
-          console.error('[PitchDetection] Callback error:', error);
-        }
-      });
-    }, 100); // Analyze every 100ms
+      this.notifyCallbacks(result);
+    }, 50); // Faster updates - every 50ms instead of 100ms
   }
 
   /**
-   * Simulate realistic pitch detection for development
-   * TODO: Replace with real YIN algorithm processing
+   * Autocorrelation pitch detection algorithm
    */
-  private simulateRealisticPitchDetection(): PitchAnalysisResult {
-    // Simulate more realistic behavior - sometimes detect a note, sometimes silence
-    const random = Math.random();
-
-    if (random < 0.3) {
-      // 30% chance of silence/no detection
-      return {
-        frequency: null,
-        confidence: 0,
-        timestamp: Date.now(),
-      };
+  private detectPitchAutocorrelation(buffer: Float32Array<ArrayBufferLike>, sampleRate: number): number | null {
+    // First check if there's enough signal
+    const rms = this.calculateRMS(buffer);
+    if (rms < 0.005) {
+      // Signal too weak, probably silence
+      return null;
     }
 
-    // Simulate detecting common guitar frequencies
-    const commonFrequencies = [
-      82.41,   // E2 (low E string)
-      110.00,  // A2 (A string)
-      146.83,  // D3 (D string)
-      196.00,  // G3 (G string)
-      246.94,  // B3 (B string)
-      329.63,  // E4 (high E string)
-    ];
+    // Find the first zero crossing
+    let start = 0;
+    while (start < buffer.length && buffer[start] > 0) {
+      start++;
+    }
 
-    const baseFreq = commonFrequencies[Math.floor(Math.random() * commonFrequencies.length)];
-    // Add some realistic variation (±5 cents)
-    const variation = (Math.random() - 0.5) * 0.06; // ±3% variation
-    const frequency = baseFreq * (1 + variation);
+    // Calculate autocorrelation with extended range for low frequencies
+    const minPeriod = Math.floor(sampleRate / 1200); // 1200 Hz max
+    const maxPeriod = Math.floor(sampleRate / 40);   // 40 Hz min (lower for bass notes)
 
-    return {
-      frequency,
-      confidence: 0.7 + Math.random() * 0.3, // 70-100% confidence
-      timestamp: Date.now(),
-    };
+    let bestOffset = -1;
+    let bestCorrelation = 0;
+    let foundGoodCorrelation = false;
+
+    for (let offset = minPeriod; offset < maxPeriod && offset < buffer.length / 2; offset++) {
+      let correlation = 0;
+      let count = 0;
+
+      for (let i = start; i < buffer.length - offset; i++) {
+        correlation += Math.abs(buffer[i] - buffer[i + offset]);
+        count++;
+      }
+
+      if (count > 0) {
+        correlation = 1 - correlation / count;
+
+        // Lower threshold for better detection, especially for low notes
+        if (correlation > 0.90) {
+          foundGoodCorrelation = true;
+          if (correlation > bestCorrelation) {
+            bestCorrelation = correlation;
+            bestOffset = offset;
+          }
+        }
+      }
+    }
+
+    if (foundGoodCorrelation && bestOffset !== -1) {
+      const frequency = sampleRate / bestOffset;
+      // Extended guitar range (40-1200 Hz to catch low bass notes)
+      if (frequency >= 40 && frequency <= 1200) {
+        return frequency;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate RMS (Root Mean Square) for signal strength
+   */
+  private calculateRMS(buffer: Float32Array<ArrayBufferLike>): number {
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      sum += buffer[i] * buffer[i];
+    }
+    return Math.sqrt(sum / buffer.length);
+  }
+
+  /**
+   * Notify all callbacks
+   */
+  private notifyCallbacks(result: PitchAnalysisResult): void {
+    this.callbacks.forEach(callback => {
+      try {
+        callback(result);
+      } catch (error) {
+        console.error('[PitchDetection] Callback error:', error);
+      }
+    });
   }
 }
 

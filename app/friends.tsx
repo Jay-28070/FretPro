@@ -179,6 +179,10 @@ export default function FriendsScreen() {
 
     } catch (error) {
       console.error('Error loading friends data:', error);
+      // Don't show error to user - just set empty states
+      setFriends([]);
+      setFriendRequests([]);
+      setChallenges([]);
     } finally {
       setLoading(false);
     }
