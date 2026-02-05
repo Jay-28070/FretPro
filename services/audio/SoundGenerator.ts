@@ -118,24 +118,93 @@ class SoundGenerator {
   }
 
   /**
-   * Play musical note on mobile
+   * Play musical note on mobile using local audio files
    */
   private async playMobileNote(note: string, octave: number, duration: number): Promise<void> {
     try {
-      // Use online sound for notes (temporary solution)
-      // In production, use local audio files for each note
+      // Map note names to file names (handle sharps)
+      const noteFileName = note.replace('♯', 's'); // C♯ -> Cs
+      const fileName = `${noteFileName}${octave}`;
+      
+      // Try to load local audio file
+      // Files should be named like: C4.wav, Cs4.wav, D4.wav, etc.
+      const noteFiles: { [key: string]: any } = {
+        // Octave 3
+        'C3': require('@/assets/sounds/notes/C3.wav'),
+        'Cs3': require('@/assets/sounds/notes/Cs3.wav'),
+        'D3': require('@/assets/sounds/notes/D3.wav'),
+        'Ds3': require('@/assets/sounds/notes/Ds3.wav'),
+        'E3': require('@/assets/sounds/notes/E3.wav'),
+        'F3': require('@/assets/sounds/notes/F3.wav'),
+        'Fs3': require('@/assets/sounds/notes/Fs3.wav'),
+        'G3': require('@/assets/sounds/notes/G3.wav'),
+        'Gs3': require('@/assets/sounds/notes/Gs3.wav'),
+        'A3': require('@/assets/sounds/notes/A3.wav'),
+        'As3': require('@/assets/sounds/notes/As3.wav'),
+        'B3': require('@/assets/sounds/notes/B3.wav'),
+        // Octave 4 (most common)
+        'C4': require('@/assets/sounds/notes/C4.wav'),
+        'Cs4': require('@/assets/sounds/notes/Cs4.wav'),
+        'D4': require('@/assets/sounds/notes/D4.wav'),
+        'Ds4': require('@/assets/sounds/notes/Ds4.wav'),
+        'E4': require('@/assets/sounds/notes/E4.wav'),
+        'F4': require('@/assets/sounds/notes/F4.wav'),
+        'Fs4': require('@/assets/sounds/notes/Fs4.wav'),
+        'G4': require('@/assets/sounds/notes/G4.wav'),
+        'Gs4': require('@/assets/sounds/notes/Gs4.wav'),
+        'A4': require('@/assets/sounds/notes/A4.wav'),
+        'As4': require('@/assets/sounds/notes/As4.wav'),
+        'B4': require('@/assets/sounds/notes/B4.wav'),
+        // Octave 5
+        'C5': require('@/assets/sounds/notes/C5.wav'),
+        'Cs5': require('@/assets/sounds/notes/Cs5.wav'),
+        'D5': require('@/assets/sounds/notes/D5.wav'),
+        'Ds5': require('@/assets/sounds/notes/Ds5.wav'),
+        'E5': require('@/assets/sounds/notes/E5.wav'),
+        'F5': require('@/assets/sounds/notes/F5.wav'),
+        'Fs5': require('@/assets/sounds/notes/Fs5.wav'),
+        'G5': require('@/assets/sounds/notes/G5.wav'),
+        'Gs5': require('@/assets/sounds/notes/Gs5.wav'),
+        'A5': require('@/assets/sounds/notes/A5.wav'),
+        'As5': require('@/assets/sounds/notes/As5.wav'),
+        'B5': require('@/assets/sounds/notes/B5.wav'),
+      };
+
+      const soundFile = noteFiles[fileName];
+      
+      if (!soundFile) {
+        console.warn(`Note file not found: ${fileName}.wav, using Web Audio fallback`);
+        // Fallback to synthesized sound
+        throw new Error('Note file not found');
+      }
+
       const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
-        { shouldPlay: true, volume: 0.5 }
+        soundFile,
+        { 
+          shouldPlay: true, 
+          volume: 0.7,
+        }
       );
 
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
+      // Auto-unload after duration
+      setTimeout(() => {
+        sound.unloadAsync().catch(() => {});
+      }, duration * 1000 + 200);
     } catch (error) {
-      console.log(`Playing ${note}${octave}`);
+      console.warn(`Failed to play local note file for ${note}${octave}, using fallback:`, error);
+      // Fallback: Use online sound or just log
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg' },
+          { shouldPlay: true, volume: 0.5 }
+        );
+
+        setTimeout(() => {
+          sound.unloadAsync().catch(() => {});
+        }, duration * 1000);
+      } catch (fallbackError) {
+        console.log(`Playing ${note}${octave} (no audio available)`);
+      }
     }
   }
 

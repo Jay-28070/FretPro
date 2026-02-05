@@ -102,13 +102,25 @@ deploy-rules.bat
 
 ### 5. Add Audio Files
 
+The app requires audio files for the best experience:
+
+#### Metronome Sounds (Required)
 The metronome requires two WAV files in `assets/sounds/`:
 - `click.wav` - Regular metronome click
 - `accented_click.wav` - Accented beat (downbeat)
 
-You can:
-- Use your own WAV files (short, clean clicks work best)
-- Or download free metronome sounds from [freesound.org](https://freesound.org/)
+#### Musical Note Files (Optional but Recommended)
+For the Ear Training game, add note files in `assets/sounds/notes/`:
+- 36 WAV files covering 3 octaves (C3-B3, C4-B4, C5-B5)
+- Named like: `C4.wav`, `Cs4.wav` (s = sharp), `D4.wav`, etc.
+- See `assets/sounds/notes/README.md` for detailed instructions
+
+**Quick options:**
+- **Generate with Audacity**: Free tone generator (see notes README)
+- **Download samples**: Freesound.org, Philharmonia Orchestra
+- **Record your own**: Guitar, piano, or synthesizer
+
+**Note**: The app works without note files (uses synthesized sounds on web), but local files provide much better quality on mobile.
 
 ## Running the App
 
