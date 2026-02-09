@@ -9,16 +9,18 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image as RNImage, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface ProfileHeaderProps {
   username: string;
   friendCount: number;
   pendingRequestsCount?: number;
   avatarUrl?: string;
+  onEditAvatar?: () => void;
+  onViewAvatar?: () => void;
 }
 
-export function ProfileHeader({ username, friendCount, pendingRequestsCount = 0, avatarUrl }: ProfileHeaderProps) {
+export function ProfileHeader({ username, friendCount, pendingRequestsCount = 0, avatarUrl, onEditAvatar, onViewAvatar }: ProfileHeaderProps) {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
@@ -27,13 +29,53 @@ export function ProfileHeader({ username, friendCount, pendingRequestsCount = 0,
     router.push('/friends');
   };
 
+  const handleAvatarPress = () => {
+    console.log('[ProfileHeader] Avatar pressed, avatarUrl:', avatarUrl);
+    console.log('[ProfileHeader] onViewAvatar:', !!onViewAvatar, 'onEditAvatar:', !!onEditAvatar);
+    
+    if (avatarUrl && onViewAvatar) {
+      // If has image, view it
+      console.log('[ProfileHeader] Calling onViewAvatar');
+      onViewAvatar();
+    } else if (onEditAvatar) {
+      // If no image, upload one
+      console.log('[ProfileHeader] Calling onEditAvatar');
+      onEditAvatar();
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Avatar */}
-      <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.avatarText, { color: colors.background }]}>
-          {username.charAt(0).toUpperCase()}
-        </Text>
+      {/* Avatar with Edit Button */}
+      <View style={styles.avatarContainer}>
+        <TouchableOpacity
+          onPress={handleAvatarPress}
+          activeOpacity={0.7}
+        >
+          {avatarUrl ? (
+            <RNImage 
+              source={{ uri: avatarUrl }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.avatarText, { color: colors.background }]}>
+                {username.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
+        {/* Edit Button - Only show if has image */}
+        {onEditAvatar && avatarUrl && (
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: colors.primary }]}
+            onPress={onEditAvatar}
+            activeOpacity={0.7}
+          >
+            <IconSymbol name="camera.fill" size={16} color={colors.background} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Username */}
@@ -77,17 +119,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '700',
+  },
+  editButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   username: {
     fontSize: 24,

@@ -8,17 +8,20 @@
 import { LevelDisplay } from '@/components/profile/LevelDisplay';
 import { NavigationCard } from '@/components/profile/NavigationCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
+import { ProfileImageModal } from '@/components/profile/ProfileImageModal';
 import { StatsSummary } from '@/components/profile/StatsSummary';
 import { ProfileSkeleton } from '@/components/ui/skeleton';
+import { showToast } from '@/components/ui/toast';
 import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { progressionService, type PlayerProgression } from '@/services/progression/ProgressionService';
+import { profileImageService } from '@/services/storage/ProfileImageService';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UserProfile {
@@ -26,6 +29,7 @@ interface UserProfile {
   lastName: string;
   username: string;
   email: string;
+  avatarUrl?: string;
   stats: {
     totalPoints: number;
     totalSessions: number;
@@ -47,6 +51,7 @@ export default function ProfileScreen() {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [friendCount, setFriendCount] = useState(0);
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   // Load user profile from Firestore
   const loadProfile = useCallback(async () => {
@@ -65,6 +70,7 @@ export default function ProfileScreen() {
           lastName: data.lastName || '',
           username: data.username || user.email?.split('@')[0] || 'user',
           email: data.email || user.email || '',
+          avatarUrl: data.avatarUrl || undefined,
           stats: data.stats || {
             totalPoints: 0,
             totalSessions: 0,
@@ -80,6 +86,7 @@ export default function ProfileScreen() {
           lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
           username: user.email?.split('@')[0] || 'user',
           email: user.email || '',
+          avatarUrl: undefined,
           stats: {
             totalPoints: 0,
             totalSessions: 0,
@@ -139,6 +146,7 @@ export default function ProfileScreen() {
         lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
         username: user.email?.split('@')[0] || 'user',
         email: user.email || '',
+        avatarUrl: undefined,
         stats: {
           totalPoints: 0,
           totalSessions: 0,
@@ -173,6 +181,147 @@ export default function ProfileScreen() {
     router.push('/friends');
   };
 
+  const handleViewAvatar = () => {
+    console.log('[Profile] View avatar clicked');
+    setShowImageModal(true);
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+
+    try {
+      setShowImageModal(false);
+      
+      // Confirm removal
+      if (Platform.OS === 'web') {
+        if (!window.confirm('Remove profile picture?')) return;
+      } else {
+        Alert.alert(
+          'Remove Profile Picture',
+          'Are you sure you want to remove your profile picture?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Remove',
+              style: 'destructive',
+              onPress: async () => {
+                await removeAvatarFromFirestore();
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await removeAvatarFromFirestore();
+    } catch (error) {
+      console.error('[Profile] Error removing avatar:', error);
+      showToast('Failed to remove profile picture', 'error');
+    }
+  };
+
+  const removeAvatarFromFirestore = async () => {
+    if (!user) return;
+
+    try {
+      // Remove from Firestore
+      await updateDoc(doc(db, 'users', user.uid), {
+        avatarUrl: null,
+      });
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatarUrl: undefined } : null);
+      showToast('Profile picture removed', 'success');
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleEditAvatar = () => {
+    console.log('[Profile] Edit avatar clicked, Platform:', Platform.OS);
+    
+    if (Platform.OS === 'web') {
+      // Web - Directly open file picker
+      handleChoosePhoto();
+    } else if (Platform.OS === 'ios') {
+      // iOS Action Sheet
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        async (buttonIndex) => {
+          if (buttonIndex === 1) {
+            await handleTakePhoto();
+          } else if (buttonIndex === 2) {
+            await handleChoosePhoto();
+          }
+        }
+      );
+    } else {
+      // Android Alert
+      Alert.alert(
+        'Change Profile Picture',
+        'Choose an option',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: handleTakePhoto },
+          { text: 'Choose from Library', onPress: handleChoosePhoto },
+        ]
+      );
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    if (!user) return;
+
+    try {
+      showToast('Opening camera...', 'info');
+      const downloadURL = await profileImageService.takePhotoAndUpload(user.uid);
+      
+      // Update Firestore
+      await updateDoc(doc(db, 'users', user.uid), {
+        avatarUrl: downloadURL,
+      });
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatarUrl: downloadURL } : null);
+      showToast('Profile picture updated!', 'success');
+    } catch (error: any) {
+      console.error('[Profile] Error taking photo:', error);
+      if (error.message !== 'No photo taken') {
+        showToast('Failed to update profile picture', 'error');
+      }
+    }
+  };
+
+  const handleChoosePhoto = async () => {
+    if (!user) return;
+
+    try {
+      showToast('Opening gallery...', 'info');
+      const base64Image = await profileImageService.pickAndUploadImage(user.uid);
+      
+      console.log('[Profile] Image converted to base64, length:', base64Image.length);
+      
+      // Update Firestore
+      await updateDoc(doc(db, 'users', user.uid), {
+        avatarUrl: base64Image,
+      });
+
+      console.log('[Profile] Firestore updated with avatarUrl');
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatarUrl: base64Image } : null);
+      showToast('Profile picture updated!', 'success');
+    } catch (error: any) {
+      console.error('[Profile] Error choosing photo:', error);
+      if (error.message !== 'No image selected') {
+        showToast('Failed to update profile picture', 'error');
+      }
+    }
+  };
+
   if (loading) {
     return <ProfileSkeleton />;
   }
@@ -198,6 +347,17 @@ export default function ProfileScreen() {
           username={`${profile.firstName} ${profile.lastName}`.trim() || profile.username}
           friendCount={friendCount}
           pendingRequestsCount={pendingRequestsCount}
+          avatarUrl={profile.avatarUrl}
+          onEditAvatar={handleEditAvatar}
+          onViewAvatar={handleViewAvatar}
+        />
+
+        {/* Profile Image Modal */}
+        <ProfileImageModal
+          visible={showImageModal}
+          imageUrl={profile.avatarUrl}
+          onClose={() => setShowImageModal(false)}
+          onRemove={handleRemoveAvatar}
         />
 
         {/* Level Display */}
