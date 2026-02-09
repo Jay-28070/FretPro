@@ -5,6 +5,7 @@
  * Loads real user data from Firestore.
  */
 
+import { LevelDisplay } from '@/components/profile/LevelDisplay';
 import { NavigationCard } from '@/components/profile/NavigationCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { StatsSummary } from '@/components/profile/StatsSummary';
@@ -13,10 +14,11 @@ import { db } from '@/config/firebase';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { progressionService, type PlayerProgression } from '@/services/progression/ProgressionService';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UserProfile {
@@ -44,6 +46,7 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [friendCount, setFriendCount] = useState(0);
+  const [progression, setProgression] = useState<PlayerProgression | null>(null);
 
   // Load user profile from Firestore
   const loadProfile = useCallback(async () => {
@@ -94,7 +97,8 @@ export default function ProfileScreen() {
       );
 
       let pendingCount = 0;
-      allRequestsSnapshot.docs.forEach(docSnapshot => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      allRequestsSnapshot.docs.forEach((docSnapshot: any) => {
         const data = docSnapshot.data();
         // Count requests where current user is the RECEIVER (not the sender)
         const isPartOfFriendship = data.user1 === user.uid || data.user2 === user.uid;
@@ -113,7 +117,8 @@ export default function ProfileScreen() {
       );
 
       let acceptedFriendsCount = 0;
-      friendsSnapshot.docs.forEach(docSnapshot => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      friendsSnapshot.docs.forEach((docSnapshot: any) => {
         const data = docSnapshot.data();
         // Count friendships where current user is part of
         if (data.user1 === user.uid || data.user2 === user.uid) {
@@ -122,6 +127,12 @@ export default function ProfileScreen() {
       });
 
       setFriendCount(acceptedFriendsCount);
+
+      // Load player progression
+      if (user) {
+        const prog = await progressionService.getProgression(user.uid);
+        setProgression(prog);
+      }
     } catch (error: any) {
       setProfile({
         firstName: user.displayName?.split(' ')[0] || 'User',
@@ -162,10 +173,6 @@ export default function ProfileScreen() {
     router.push('/friends');
   };
 
-  const handleHistoryPress = () => {
-    Alert.alert('Coming Soon', 'Practice history will be available in Phase 3');
-  };
-
   if (loading) {
     return <ProfileSkeleton />;
   }
@@ -193,6 +200,19 @@ export default function ProfileScreen() {
           pendingRequestsCount={pendingRequestsCount}
         />
 
+        {/* Level Display */}
+        {progression && (
+          <View style={styles.section}>
+            <LevelDisplay
+              level={progression.level}
+              xp={progression.xp}
+              xpToNextLevel={progression.xpToNextLevel}
+              xpProgress={progression.xpProgress}
+              title={progression.title}
+            />
+          </View>
+        )}
+
         {/* Navigation Cards */}
         <View style={styles.section}>
           <NavigationCard
@@ -209,14 +229,6 @@ export default function ProfileScreen() {
             subtitle="Search, add, and compete"
             onPress={handleFriendsPress}
             iconColor={colors.primary}
-          />
-
-          <NavigationCard
-            icon="chart.bar.fill"
-            title="Practice History"
-            subtitle="View past sessions"
-            onPress={handleHistoryPress}
-            iconColor={colors.success}
           />
         </View>
 
