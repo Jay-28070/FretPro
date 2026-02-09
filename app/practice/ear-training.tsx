@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { soundGenerator } from '@/services/audio/SoundGenerator';
 import { scoreService } from '@/services/practice/ScoreService';
+import { progressionService } from '@/services/progression/ProgressionService';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -209,12 +210,29 @@ export default function EarTrainingScreen() {
         totalQuestions
       );
 
+      // Award XP for the session
+      const xpResult = await progressionService.awardSessionXP(
+        user.uid,
+        score,
+        totalQuestions,
+        result.isNewHighScore
+      );
+
+      // Show appropriate message
       if (result.isNewHighScore) {
-        showToast(`🎉 New High Score! ${score} (was ${result.previousBest})`, 'success');
+        if (xpResult.leveledUp) {
+          showToast(`🎉 New High Score! ${score} • Level Up! Now Level ${xpResult.newLevel} (+${xpResult.xpGained} XP)`, 'success');
+        } else {
+          showToast(`🎉 New High Score! ${score} (was ${result.previousBest}) • +${xpResult.xpGained} XP`, 'success');
+        }
         setHighScore(score);
         loadAllHighScores(); // Refresh all scores
       } else {
-        showToast(`Session complete! Score: ${score}/${totalQuestions} (${accuracy}%) • Best: ${highScore}`, 'success');
+        if (xpResult.leveledUp) {
+          showToast(`Level Up! Now Level ${xpResult.newLevel} 🎉 • Score: ${score}/${totalQuestions} (+${xpResult.xpGained} XP)`, 'success');
+        } else {
+          showToast(`Session complete! Score: ${score}/${totalQuestions} (${accuracy}%) • +${xpResult.xpGained} XP`, 'success');
+        }
       }
     } else {
       showToast(`Session complete! Score: ${score}/${totalQuestions} (${accuracy}%)`, 'success');

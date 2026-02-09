@@ -14,7 +14,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Image as RNImage, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface FriendProfile {
@@ -23,6 +23,7 @@ interface FriendProfile {
   lastName: string;
   username: string;
   email: string;
+  avatarUrl?: string;
   stats: {
     totalPoints: number;
     totalSessions: number;
@@ -68,6 +69,7 @@ export default function FriendProfileScreen() {
           lastName: data.lastName || '',
           username: data.username || data.email?.split('@')[0] || 'user',
           email: data.email || '',
+          avatarUrl: data.avatarUrl || undefined,
           stats: data.stats || {
             totalPoints: 0,
             totalSessions: 0,
@@ -158,12 +160,19 @@ export default function FriendProfileScreen() {
         >
           {/* Profile Header */}
           <View style={[styles.header, { backgroundColor: colors.backgroundSecondary }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.avatarText, { color: colors.background }]}>
-                {profile.firstName.charAt(0).toUpperCase()}
-                {profile.lastName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
+            {profile.avatarUrl ? (
+              <RNImage 
+                source={{ uri: profile.avatarUrl }} 
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.avatarText, { color: colors.background }]}>
+                  {profile.firstName.charAt(0).toUpperCase()}
+                  {profile.lastName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={[styles.name, { color: colors.text }]}>
               {profile.firstName} {profile.lastName}
             </Text>
@@ -281,6 +290,12 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: 16,
   },
   avatarText: {

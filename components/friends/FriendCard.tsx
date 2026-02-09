@@ -8,7 +8,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image as RNImage, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface FriendCardProps {
   userId: string;
@@ -16,9 +16,10 @@ interface FriendCardProps {
   fullName?: string;
   accuracy: number;
   isOnline: boolean;
+  avatarUrl?: string;
 }
 
-export function FriendCard({ userId, username, fullName, accuracy, isOnline }: FriendCardProps) {
+export function FriendCard({ userId, username, fullName, accuracy, isOnline, avatarUrl }: FriendCardProps) {
   const { colorScheme } = useTheme();
   const colors = Colors[colorScheme];
   const router = useRouter();
@@ -42,10 +43,19 @@ export function FriendCard({ userId, username, fullName, accuracy, isOnline }: F
     >
       <View style={styles.leftSection}>
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.avatarText, { color: colors.background }]}>
-            {username.charAt(0).toUpperCase()}
-          </Text>
+        <View style={styles.avatarContainer}>
+          {avatarUrl ? (
+            <RNImage 
+              source={{ uri: avatarUrl }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.avatarText, { color: colors.background }]}>
+                {username.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           {isOnline && (
             <View style={[styles.onlineIndicator, { 
               backgroundColor: colors.success,
@@ -102,14 +112,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    position: 'relative',
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarText: {
     fontSize: 18,

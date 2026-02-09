@@ -42,7 +42,16 @@ export default function TunerScreen() {
         setIsListening(true);
       } catch (error) {
         console.error('[Tuner] Failed to start tuner:', error);
-        alert(`Tuner error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Show user-friendly error message
+        if (errorMessage.includes('permission')) {
+          alert('Microphone permission denied. Please allow microphone access in your browser settings and refresh the page.');
+        } else if (errorMessage.includes('not available')) {
+          alert('Microphone not available. Please check that your microphone is connected and not being used by another application.');
+        } else {
+          alert(`Tuner error: ${errorMessage}\n\nNote: The tuner only works on web browsers with microphone access.`);
+        }
       }
     };
 

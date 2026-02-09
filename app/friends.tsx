@@ -26,6 +26,7 @@ interface Friend {
   lastName: string;
   accuracy: number;
   isOnline: boolean;
+  avatarUrl?: string;
 }
 
 interface FriendRequest {
@@ -125,6 +126,7 @@ export default function FriendsScreen() {
             lastName: profile.lastName || '',
             accuracy: profile.stats?.averageAccuracy || 0,
             isOnline: false, // TODO: Implement online status
+            avatarUrl: profile.avatarUrl || undefined,
           });
         }
       }
@@ -566,6 +568,7 @@ export default function FriendsScreen() {
                   fullName={`${friend.firstName} ${friend.lastName}`.trim()}
                   accuracy={friend.accuracy}
                   isOnline={friend.isOnline}
+                  avatarUrl={friend.avatarUrl}
                 />
               ))}
 
