@@ -32,7 +32,6 @@ yarn-error.*
 
 # local env files
 .env*.local
-.env
 
 # Firebase Admin SDK (NEVER commit these!)
 serviceAccountKey.json

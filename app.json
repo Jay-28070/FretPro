@@ -7,9 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "fretpro",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "FretPro needs microphone access for the tuner and note recognition features."
+      }
     },
     "android": {
       "package": "com.fretpro.app",
@@ -20,7 +22,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -44,6 +49,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "296e10a1-11c8-4ba6-a0d8-03e1f5b822ea"
+      }
     }
   }
 }

@@ -3,11 +3,24 @@
  * 
  * Handles real-time pitch detection from microphone input.
  * - Web: Uses Web Audio API with autocorrelation
- * - Mobile: Uses expo-av with metering data for pitch estimation
+ * - Mobile: Uses expo-audio with audio buffer processing
  */
 
-import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
+
+// Conditional imports for mobile audio
+let AudioRecording: any;
+let requestRecordingPermissionsAsync: any;
+
+if (Platform.OS !== 'web') {
+  try {
+    const expoAudio = require('expo-audio');
+    AudioRecording = expoAudio.AudioRecording;
+    requestRecordingPermissionsAsync = expoAudio.requestRecordingPermissionsAsync;
+  } catch (e) {
+    console.warn('[PitchDetection] expo-audio not available');
+  }
+}
 
 interface PitchAnalysisResult {
   frequency: number | null;
@@ -29,10 +42,11 @@ class PitchDetectionService {
   private microphone: MediaStreamAudioSourceNode | null = null;
   private dataArray: Float32Array | null = null;
 
-  // Mobile recording properties
-  private recording: Audio.Recording | null = null;
-  private meteringSamples: number[] = [];
-  private lastMeteringTime = 0;
+  // Mobile recording properties (expo-audio)
+  private audioRecording: any = null; // expo-audio Recording instance
+  private recordingInterval: ReturnType<typeof setInterval> | null = null;
+  private audioChunks: Float32Array[] = [];
+  private isProcessing = false;
 
   /**
    * Initialize pitch detection engine
@@ -98,25 +112,25 @@ class PitchDetectionService {
   }
 
   /**
-   * Initialize native audio (expo-av)
+   * Initialize native audio (expo-audio)
    */
   private async initializeNativeAudio(): Promise<void> {
-    // Request microphone permissions
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status !== 'granted') {
-      throw new Error('Microphone permission not granted');
+    try {
+      if (!requestRecordingPermissionsAsync) {
+        throw new Error('expo-audio not available');
+      }
+
+      // Request microphone permissions
+      const { status } = await requestRecordingPermissionsAsync();
+      if (status !== 'granted') {
+        throw new Error('Microphone permission not granted');
+      }
+
+      console.log('[PitchDetection] Native audio initialized with expo-audio');
+    } catch (error) {
+      console.error('[PitchDetection] Native audio initialization failed:', error);
+      throw error;
     }
-
-    // Configure audio mode for recording
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-      staysActiveInBackground: false,
-    });
-
-    console.log('[PitchDetection] Native audio initialized');
   }
 
   /**
@@ -145,26 +159,23 @@ class PitchDetectionService {
   }
 
   /**
-   * Start mobile recording with metering
+   * Start mobile recording with expo-audio
    */
   private async startMobileRecording(): Promise<void> {
     try {
-      this.recording = new Audio.Recording();
+      if (!AudioRecording) {
+        throw new Error('expo-audio not available');
+      }
 
       const recordingOptions = {
-        isMeteringEnabled: true,
         android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          extension: '.wav',
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
         },
         ios: {
-          extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
+          extension: '.wav',
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
@@ -175,21 +186,21 @@ class PitchDetectionService {
         },
       };
 
-      await this.recording.prepareToRecordAsync(recordingOptions);
+      // Create recording instance
+      this.audioRecording = new AudioRecording(recordingOptions);
       
-      // Set up status update callback for metering
-      this.recording.setOnRecordingStatusUpdate((status) => {
-        if (status.isRecording && status.metering !== undefined) {
-          this.processMeteringData(status.metering);
+      // Start recording
+      await this.audioRecording.startAsync();
+
+      console.log('[PitchDetection] Mobile recording started with expo-audio');
+
+      // Start processing loop - analyze audio every 100ms
+      this.recordingInterval = setInterval(async () => {
+        if (!this.isProcessing && this.audioRecording) {
+          await this.processAudioChunk();
         }
-      });
+      }, 100);
 
-      // Set polling interval for metering updates (100ms)
-      this.recording.setProgressUpdateInterval(100);
-
-      await this.recording.startAsync();
-
-      console.log('[PitchDetection] Mobile recording started with metering');
     } catch (error) {
       console.error('[PitchDetection] Failed to start mobile recording:', error);
       throw error;
@@ -197,135 +208,146 @@ class PitchDetectionService {
   }
 
   /**
-   * Process metering data from mobile recording
-   * Metering gives us amplitude, we'll use pattern recognition for pitch
+   * Process audio chunk from recording
    */
-  private processMeteringData(metering: number): void {
-    const now = Date.now();
-    
-    console.log('[PitchDetection] Metering:', metering, 'dB');
-    
-    // Collect metering samples over time
-    this.meteringSamples.push(metering);
-    
-    // Keep only last 50 samples (5 seconds at 100ms intervals)
-    if (this.meteringSamples.length > 50) {
-      this.meteringSamples.shift();
-    }
+  private async processAudioChunk(): Promise<void> {
+    if (this.isProcessing || !this.audioRecording) return;
 
-    // Analyze every 100ms
-    if (now - this.lastMeteringTime >= 100) {
-      this.lastMeteringTime = now;
+    this.isProcessing = true;
+
+    try {
+      // Get current recording status
+      const status = await this.audioRecording.getStatusAsync();
       
-      // Estimate pitch from metering pattern
-      const result = this.estimatePitchFromMetering();
-      console.log('[PitchDetection] Mobile result:', result);
-      this.notifyCallbacks(result);
-    }
-  }
-
-  /**
-   * Estimate pitch from metering data
-   * This is a simplified approach - real implementation would need audio buffer access
-   */
-  private estimatePitchFromMetering(): PitchAnalysisResult {
-    if (this.meteringSamples.length < 10) {
-      return {
-        frequency: null,
-        confidence: 0,
-        timestamp: Date.now(),
-      };
-    }
-
-    // Calculate average amplitude
-    const avgAmplitude = this.meteringSamples.reduce((a, b) => a + b, 0) / this.meteringSamples.length;
-    
-    // If too quiet, no detection
-    if (avgAmplitude < -40) {
-      return {
-        frequency: null,
-        confidence: 0,
-        timestamp: Date.now(),
-      };
-    }
-
-    // Find peaks in the metering data to estimate frequency
-    const peaks = this.findPeaks(this.meteringSamples);
-    
-    if (peaks.length < 2) {
-      return {
-        frequency: null,
-        confidence: 0.3,
-        timestamp: Date.now(),
-      };
-    }
-
-    // Calculate average distance between peaks (in samples)
-    let totalDistance = 0;
-    for (let i = 1; i < peaks.length; i++) {
-      totalDistance += peaks[i] - peaks[i - 1];
-    }
-    const avgDistance = totalDistance / (peaks.length - 1);
-
-    // Convert to frequency (100ms per sample)
-    const frequency = 1000 / (avgDistance * 100); // Hz
-    
-    // Map to nearest guitar frequency
-    const guitarFreq = this.snapToGuitarFrequency(frequency);
-    
-    // Calculate confidence based on amplitude and pattern consistency
-    const confidence = Math.min((avgAmplitude + 60) / 40, 1);
-
-    return {
-      frequency: guitarFreq,
-      confidence: Math.max(0, confidence),
-      timestamp: Date.now(),
-    };
-  }
-
-  /**
-   * Find peaks in metering samples
-   */
-  private findPeaks(samples: number[]): number[] {
-    const peaks: number[] = [];
-    const threshold = -35; // dB threshold
-
-    for (let i = 1; i < samples.length - 1; i++) {
-      if (samples[i] > threshold && 
-          samples[i] > samples[i - 1] && 
-          samples[i] > samples[i + 1]) {
-        peaks.push(i);
+      if (!status.isRecording) {
+        this.isProcessing = false;
+        return;
       }
-    }
 
-    return peaks;
+      // For expo-audio, we need to stop, get the URI, process it, and restart
+      // This is a limitation - we'll use a different approach with continuous recording
+      
+      // Alternative: Use Web Audio API approach adapted for mobile
+      // Since expo-audio doesn't provide direct buffer access in real-time,
+      // we'll use a workaround with short recording segments
+      
+      // Stop current recording
+      await this.audioRecording.stopAsync();
+      
+      // Get the recording URI
+      const uri = this.audioRecording.getURI();
+      
+      if (uri) {
+        // Process the audio file
+        await this.processAudioFile(uri);
+      }
+
+      // Start new recording for next chunk
+      await this.audioRecording.startAsync();
+
+    } catch (error) {
+      console.error('[PitchDetection] Error processing audio chunk:', error);
+    } finally {
+      this.isProcessing = false;
+    }
   }
 
   /**
-   * Snap frequency to nearest guitar string frequency
+   * Process audio file and extract pitch
    */
-  private snapToGuitarFrequency(freq: number): number {
-    const guitarFreqs = [
-      82.41, 87.31, 92.50, 98.00, 103.83, // E2 string range
-      110.00, 116.54, 123.47, 130.81, 138.59, // A2 string range
-      146.83, 155.56, 164.81, 174.61, 185.00, // D3 string range
-      196.00, 207.65, 220.00, 233.08, 246.94, // G3 string range
-      261.63, 277.18, 293.66, 311.13, 329.63, // B3 string range
-      349.23, 369.99, 392.00, 415.30, 440.00, // E4 string range
-    ];
+  private async processAudioFile(uri: string): Promise<void> {
+    try {
+      // Load audio file
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // Decode WAV file to get audio samples
+      const audioData = this.decodeWAV(arrayBuffer);
+      
+      if (audioData && audioData.samples.length > 0) {
+        // Detect pitch using autocorrelation
+        const frequency = this.detectPitchAutocorrelation(audioData.samples, audioData.sampleRate);
+        
+        // Calculate confidence based on signal strength
+        const rms = this.calculateRMS(audioData.samples);
+        const confidence = Math.min(rms * 15, 1);
 
-    let closest = guitarFreqs[0];
-    let minDiff = Math.abs(freq - closest);
+        const result: PitchAnalysisResult = {
+          frequency: frequency && confidence > 0.2 ? frequency : null,
+          confidence,
+          timestamp: Date.now(),
+        };
 
-    for (const gFreq of guitarFreqs) {
-      const diff = Math.abs(freq - gFreq);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = gFreq;
+        console.log('[PitchDetection] Mobile result:', result);
+        this.notifyCallbacks(result);
       }
+    } catch (error) {
+      console.error('[PitchDetection] Error processing audio file:', error);
     }
+  }
 
-    return closest;
+  /**
+   * Decode WAV file to Float32Array
+   */
+  private decodeWAV(arrayBuffer: ArrayBuffer): { samples: Float32Array; sampleRate: number } | null {
+    try {
+      const view = new DataView(arrayBuffer);
+      
+      // Check WAV header
+      const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+      if (riff !== 'RIFF') {
+        console.error('[PitchDetection] Invalid WAV file - no RIFF header');
+        return null;
+      }
+
+      // Get sample rate (at byte 24)
+      const sampleRate = view.getUint32(24, true);
+      
+      // Get bit depth (at byte 34)
+      const bitDepth = view.getUint16(34, true);
+      
+      // Find data chunk
+      let offset = 12;
+      while (offset < view.byteLength) {
+        const chunkId = String.fromCharCode(
+          view.getUint8(offset),
+          view.getUint8(offset + 1),
+          view.getUint8(offset + 2),
+          view.getUint8(offset + 3)
+        );
+        const chunkSize = view.getUint32(offset + 4, true);
+        
+        if (chunkId === 'data') {
+          // Found data chunk
+          const dataOffset = offset + 8;
+          const numSamples = chunkSize / (bitDepth / 8);
+          const samples = new Float32Array(numSamples);
+          
+          // Convert to float samples (-1 to 1)
+          if (bitDepth === 16) {
+            for (let i = 0; i < numSamples; i++) {
+              const sample = view.getInt16(dataOffset + i * 2, true);
+              samples[i] = sample / 32768.0;
+            }
+          } else if (bitDepth === 8) {
+            for (let i = 0; i < numSamples; i++) {
+              const sample = view.getUint8(dataOffset + i);
+              samples[i] = (sample - 128) / 128.0;
+            }
+          }
+          
+          return { samples, sampleRate };
+        }
+        
+        offset += 8 + chunkSize;
+      }
+      
+      console.error('[PitchDetection] No data chunk found in WAV file');
+      return null;
+    } catch (error) {
+      console.error('[PitchDetection] Error decoding WAV:', error);
+      return null;
+    }
   }
 
   /**
@@ -343,6 +365,12 @@ class PitchDetectionService {
         this.analysisInterval = null;
       }
 
+      // Stop recording interval
+      if (this.recordingInterval) {
+        clearInterval(this.recordingInterval);
+        this.recordingInterval = null;
+      }
+
       // Cleanup Web Audio
       if (this.microphone) {
         this.microphone.disconnect();
@@ -356,16 +384,17 @@ class PitchDetectionService {
       }
 
       // Cleanup mobile recording
-      if (this.recording) {
+      if (this.audioRecording) {
         try {
-          await this.recording.stopAndUnloadAsync();
+          await this.audioRecording.stopAsync();
+          await this.audioRecording.unloadAsync();
         } catch (e) {
           // Ignore errors during cleanup
         }
-        this.recording = null;
+        this.audioRecording = null;
       }
 
-      this.meteringSamples = [];
+      this.audioChunks = [];
       this.isListening = false;
       console.log('[PitchDetection] Stopped listening');
     } catch (error) {
